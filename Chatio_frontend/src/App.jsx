@@ -5,6 +5,7 @@ import Profilepage from "./pages/Profilepage";
 import UploadProfilePicture from "./pages/UploadProfilePicture";
 import EnterVerificationCode from "./pages/EnterVerificationCode";
 import ChatPage from "./pages/ChatPage";
+import StatusPage from './components/StatusPage'
 
 const App = () => {
   return (
@@ -16,6 +17,7 @@ const App = () => {
         <Route path="/upload-media" element={<UploadProfilePicture  />} />
         <Route path="/verification" element={<EnterVerificationCode />} />
         <Route path="/chat" element={<ChatPage />} /> 
+        <Route path="/status" element={<StatusPage />} />
       </Routes>
     </div>
   );

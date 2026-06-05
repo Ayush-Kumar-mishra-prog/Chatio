@@ -134,7 +134,7 @@ const SideBar = ({ slectedUser, setSlectedUser }) => {
         <button
           key={user._id}
           type="button"
-          onClick={() => navigate(`/status/${user._id}`)}
+          onClick={() => navigate(`/status`)}
           className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
         >
           <span className="h-12 w-12 rounded-full border-2 border-[#25d366] p-0.5">
