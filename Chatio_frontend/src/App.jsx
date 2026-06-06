@@ -6,6 +6,8 @@ import UploadProfilePicture from "./pages/UploadProfilePicture";
 import EnterVerificationCode from "./pages/EnterVerificationCode";
 import ChatPage from "./pages/ChatPage";
 import StatusPage from './components/StatusPage'
+import LoginFailedPage from "./pages/LoginFailedPage";
+import PageNotFound from "./pages/PageNotFound";
 
 const App = () => {
   return (
@@ -18,6 +20,8 @@ const App = () => {
         <Route path="/verification" element={<EnterVerificationCode />} />
         <Route path="/chat" element={<ChatPage />} /> 
         <Route path="/status" element={<StatusPage />} />
+        <Route path="/login-failed" element={<LoginFailedPage />}/>
+        <Route path="/page-not-found" element={<PageNotFound />}/>
       </Routes>
     </div>
   );
