@@ -41,7 +41,7 @@ const LoginForm = ({ onSignUpClick }) => {
           
           
           <GoogleLogin
-  onSuccess={handleGoogleSuccess}
+  onSuccess={googleLogin}
   onError={() => {
     toast.error("Google Login Failed");
   }}
