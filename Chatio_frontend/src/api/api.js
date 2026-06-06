@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://chatio-backend-server.vercel.app";
 
 const api = axios.create({
   baseURL: `${BACKEND}/auth`,
