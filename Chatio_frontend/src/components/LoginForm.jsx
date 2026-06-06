@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import assets from "../assets/assets";
 import { GoogleLogin, useGoogleLogin } from "@react-oauth/google";
+import { googleAuth } from "../api/api";
 
 const LoginForm = ({ onSignUpClick }) => {
   const { register, handleSubmit } = useForm();
@@ -19,9 +20,13 @@ const LoginForm = ({ onSignUpClick }) => {
   };
   const handleGoogleForm = async(authResult)=>{
     try {
-      console.log(authResult)
-        toast.success("Google Login Successful")
+      if(authResult['code']){
+        const result = await googleAuth(authResult['code'])
+        const [email,name,image] = result.data.user;
+        console.log(result.data.user)
         navigate('/chat')
+        toast.success("Logged in successfully")
+      }
     } catch (error) {
       console.error(error);
       toast.error("Google Login Failed")
