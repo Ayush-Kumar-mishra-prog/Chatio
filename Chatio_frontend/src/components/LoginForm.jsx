@@ -29,7 +29,7 @@ const LoginForm = ({ onSignUpClick }) => {
   }
   const googleLogin= useGoogleLogin({
     onSuccess: handleGoogleForm,
-    onError:handleGoogleForm
+    onError: handleGoogleForm
     ,
     flow: 'auth-code',
   })
@@ -40,7 +40,12 @@ const LoginForm = ({ onSignUpClick }) => {
        <div className="mb-4">
           
           
-          <GoogleLogin onClick={googleLogin} />
+          <GoogleLogin
+  onSuccess={handleGoogleSuccess}
+  onError={() => {
+    toast.error("Google Login Failed");
+  }}
+/>
         </div>
       <form className="space-y-6 " onSubmit={handleSubmit(onsubmit)}>
         <div>
