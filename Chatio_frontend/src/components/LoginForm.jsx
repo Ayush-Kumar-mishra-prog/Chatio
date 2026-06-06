@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import assets from "../assets/assets";
-import { GoogleLogin, useGoogleLogin } from "@react-oauth/google";
+import { useGoogleLogin } from "@react-oauth/google";
 import { googleAuth } from "../api/api";
 
 const LoginForm = ({ onSignUpClick }) => {
@@ -19,6 +19,7 @@ const LoginForm = ({ onSignUpClick }) => {
   };
   const handleGoogleForm = async (authResult) => {
     try {
+      console.log("Google auth result (handler):", authResult);
       if (authResult?.code) {
         const result = await googleAuth(authResult.code);
         const { email, name, image } = result.data.user || {};
@@ -36,7 +37,10 @@ const LoginForm = ({ onSignUpClick }) => {
   };
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleForm,
-    onError: handleGoogleForm,
+    onError: (err) => {
+      console.error("Google login SDK error:", err);
+      toast.error("Google Login Failed");
+    },
     flow: "auth-code",
   });
   return (
