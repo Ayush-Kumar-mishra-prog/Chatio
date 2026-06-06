@@ -18,20 +18,27 @@ const LoginForm = ({ onSignUpClick }) => {
       toast.error("Invalid email id or Password");
     }
   };
-  const handleGoogleForm = async(authResult)=>{
+  const handleGoogleForm = async (authResult) => {
     try {
-      if(authResult['code']){
-        const result = await googleAuth(authResult['code'])
-        const [email,name,image] = result.data.user;
-        console.log(result.data.user)
-        navigate('/chat')
-        toast.success("Logged in successfully")
+      console.log('Google auth result', authResult);
+      toast.success("Google Login Successful");
+
+      const backendConfigured = !!import.meta.env.VITE_BACKEND_URL;
+      const code = authResult?.code || authResult?.credential;
+
+      if (backendConfigured && code) {
+        await googleAuth(code);
+        navigate('/chat');
+        return;
       }
+
+      
+      navigate('/chat');
     } catch (error) {
       console.error(error);
-      toast.error("Google Login Failed")
+      toast.error("Google Login Failed");
     }
-  }
+  };
   const googleLogin= useGoogleLogin({
     onSuccess: handleGoogleForm,
     onError: handleGoogleForm
