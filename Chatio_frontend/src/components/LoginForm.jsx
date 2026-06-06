@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import assets from "../assets/assets";
+import { GoogleLogin, useGoogleLogin } from "@react-oauth/google";
 
 const LoginForm = ({ onSignUpClick }) => {
   const { register, handleSubmit } = useForm();
@@ -16,21 +17,30 @@ const LoginForm = ({ onSignUpClick }) => {
       toast.error("Invalid email id or Password");
     }
   };
-  const handleGoogleForm = ()=>{
-    navigate('/chat')
-    toast.success("Login Successfully with Google");
+  const handleGoogleForm = async(authResult)=>{
+    try {
+      console.log(authResult)
+        toast.success("Google Login Successful")
+        navigate('/chat')
+    } catch (error) {
+      console.error(error);
+      toast.error("Google Login Failed")
+    }
   }
+  const googleLogin= useGoogleLogin({
+    onSuccess: handleGoogleForm,
+    onError:handleGoogleForm
+    ,
+    flow: 'auth-code',
+  })
   return (
     <div className="w-full max-w-md">
       <h2 className="text-3xl font-bold mb-6 text-center text-[#075e54]">Welcome to Chatio</h2>
       <p className="text-gray-600 mb-6">Please sign in to your account</p>
        <div className="mb-4">
           
-          <button onClick={handleGoogleForm} className="text-sm bg-slate-50 text-zinc-800 hover:bg-slate-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center  w-full justify-center gap-2">
-            <img src={assets.google_icon} alt="" className="w-10" />
-            Continue with Google 
-            
-          </button>
+          
+          <GoogleLogin onClick={googleLogin} />
         </div>
       <form className="space-y-6 " onSubmit={handleSubmit(onsubmit)}>
         <div>
