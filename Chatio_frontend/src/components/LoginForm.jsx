@@ -7,53 +7,53 @@ import { googleAuth } from "../api/api";
 
 const LoginForm = ({ onSignUpClick }) => {
   const { register, handleSubmit } = useForm();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const onsubmit = (data) => {
     if (data.email === "admin@gmail.com" && data.password === "admin") {
-        navigate('/upload-media')
+      navigate("/upload-media");
       toast.success("Login Successfully");
-
     } else {
       toast.error("Invalid email id or Password");
     }
   };
-  const handleGoogleForm = async(authResult)=>{
+  const handleGoogleForm = async (authResult) => {
     try {
-      if(authResult['code']){
-        const result = await googleAuth(authResult['code'])
-        const [email,name,image] = result.data.user;
-        console.log(result.data.user)
-        navigate('/chat')
-        toast.success("Logged in successfully")
+      if (authResult?.code) {
+        const result = await googleAuth(authResult.code);
+        const { email, name, image } = result.data.user || {};
+        console.log("Google backend user", result.data.user);
+        if (!email) {
+          throw new Error("Google user data missing email");
+        }
+        navigate("/chat");
+        toast.success("Logged in successfully");
       }
     } catch (error) {
       console.error(error);
-      toast.error("Google Login Failed")
+      toast.error("Google Login Failed");
     }
-  }
-  const googleLogin= useGoogleLogin({
+  };
+  const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleForm,
-    onError: handleGoogleForm
-    ,
-    flow: 'auth-code',
-  })
+    onError: handleGoogleForm,
+    flow: "auth-code",
+  });
   return (
     <div className="w-full max-w-md">
-      <h2 className="text-3xl font-bold mb-6 text-center text-[#075e54]">Welcome to Chatio</h2>
+      <h2 className="text-3xl font-bold mb-6 text-center text-[#075e54]">
+        Welcome to Chatio
+      </h2>
       <p className="text-gray-600 mb-6">Please sign in to your account</p>
-       <div className="mb-4">
-          
-          
-          <button className="text-sm bg-slate-50 text-zinc-800 border border-gray-300 hover:bg-gray-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center" onClick={googleLogin}>
-            <img
-              src={assets.google_icon}
-              alt="Google icon"
-              className="w-10"
-            />
-            Continue with Google
-          </button>
-        </div>
+      <div className="mb-4">
+        <button
+          className="text-sm bg-slate-50 text-zinc-800 border border-gray-300 hover:bg-gray-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center"
+          onClick={googleLogin}
+        >
+          <img src={assets.google_icon} alt="Google icon" className="w-10" />
+          Continue with Google
+        </button>
+      </div>
       <form className="space-y-6 " onSubmit={handleSubmit(onsubmit)}>
         <div>
           <label
@@ -103,7 +103,6 @@ const LoginForm = ({ onSignUpClick }) => {
             Log in
           </button>
         </div>
-       
       </form>
     </div>
   );
