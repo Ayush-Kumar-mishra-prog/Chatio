@@ -40,12 +40,14 @@ const LoginForm = ({ onSignUpClick }) => {
        <div className="mb-4">
           
           
-          <GoogleLogin
-  onSuccess={googleLogin}
-  onError={() => {
-    toast.error("Google Login Failed");
-  }}
-/>
+          <button className="text-sm bg-slate-50 text-zinc-800 border border-gray-300 hover:bg-gray-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center" onClick={googleLogin}>
+            <img
+              src={assets.google_icon}
+              alt="Google icon"
+              className="w-10"
+            />
+            Continue with Google
+          </button>
         </div>
       <form className="space-y-6 " onSubmit={handleSubmit(onsubmit)}>
         <div>
