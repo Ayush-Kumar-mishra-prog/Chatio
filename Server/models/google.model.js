@@ -1,19 +1,61 @@
 import mongoose from "mongoose";
 
 const gSchema = new mongoose.Schema(
-{
-  name:{
-    type:String,
-    
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      minlength: 8,
+      default: "",
+      select: false,
+    },
+    image: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+    },
+    googleId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    facebookId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    authProvider: {
+      type: String,
+      enum: ["local", "google", "facebook"],
+      default: "local",
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationCode: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
   },
-  email:{
-    type:String,
-    
-},
-image:{
-  type:String
-}
-}
+  { timestamps: true },
 );
 
 // export default mongoose.model("GoogleUser", gSchema);

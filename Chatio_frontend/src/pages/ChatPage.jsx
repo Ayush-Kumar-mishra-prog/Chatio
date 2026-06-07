@@ -2,14 +2,18 @@ import { useState } from 'react'
 import SideBar from '../components/SideBar'
 import ChatContainer from '../components/ChatContainer'
 import RightSidebar from '../components/RightSidebar'
+import ProfileEditorPanel from '../components/ProfileEditorPanel'
+import CreateGroupPanel from '../components/CreateGroupPanel'
 
 const ChatPage = () => {
     const [slectedUser,setSlectedUser] = useState(false)
     const [showProfile, setShowProfile] = useState(false)
+    const [sidebarPanel, setSidebarPanel] = useState("chats")
 
     const handleSelectUser = (user) => {
       setSlectedUser(user)
       setShowProfile(false)
+      setSidebarPanel("chats")
     }
 
     const handleBackToChats = () => {
@@ -20,12 +24,30 @@ const ChatPage = () => {
     <div className="w-full h-screen bg-[#e8f3ef]/80">
     <div className={`h-full grid grid-cols-1 overflow-hidden bg-[#f7fbf9]/90 shadow-2xl shadow-emerald-950/10 relative
     ${slectedUser ? 'md:grid-cols-[360px_minmax(0,1fr)_320px] xl:grid-cols-[400px_minmax(0,1fr)_360px]':'md:grid-cols-[380px_minmax(0,1fr)]'}`}>
-        <SideBar slectedUser={slectedUser} setSlectedUser={handleSelectUser} />
+        {sidebarPanel === "profile" ? (
+          <ProfileEditorPanel onBack={() => setSidebarPanel("chats")} />
+        ) : sidebarPanel === "group" ? (
+          <CreateGroupPanel
+            onBack={() => setSidebarPanel("chats")}
+            onCreate={(group) => {
+              handleSelectUser(group)
+              setSidebarPanel("chats")
+            }}
+          />
+        ) : (
+          <SideBar
+            slectedUser={slectedUser}
+            setSlectedUser={handleSelectUser}
+            onEditProfile={() => setSidebarPanel("profile")}
+            onCreateGroup={() => setSidebarPanel("group")}
+          />
+        )}
         <ChatContainer
           slectedUser={slectedUser}
           setSlectedUser={handleBackToChats}
           showProfile={showProfile}
           onShowProfile={() => setShowProfile(true)}
+          onEditProfile={() => setSidebarPanel("profile")}
         />
         <RightSidebar
           slectedUser={slectedUser}

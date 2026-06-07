@@ -4,7 +4,6 @@ import {
   CheckCheck,
   Clock3,
   MessageCircle,
-  MoreVertical,
   Phone,
   PhoneIncoming,
   PhoneOutgoing,
@@ -14,15 +13,17 @@ import {
   UserPlus,
   Users,
   CircleDashed,
+  LogOut,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-const SideBar = ({ slectedUser, setSlectedUser }) => {
+const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) => {
   const navigate = useNavigate();
-  const [showMenu, setShowMenu] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [activeTab, setActiveTab] = useState("Chats");
   const [searchTerm, setSearchTerm] = useState("");
+  const { user, logout } = useAuth();
   const topTabs = [
     { label: "Chats", icon: MessageCircle },
     { label: "Groups", icon: Users },
@@ -221,35 +222,16 @@ const SideBar = ({ slectedUser, setSlectedUser }) => {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              title="New chat"
-              onClick={() => setShowNewChat((value) => !value)}
-              className="h-10 w-10 rounded-full flex items-center justify-center text-[#075e54] hover:bg-emerald-50 transition"
+              title="Edit profile"
+              onClick={onEditProfile}
+              className="h-10 w-10 rounded-full overflow-hidden border border-emerald-100 hover:ring-2 hover:ring-[#00a884] transition"
             >
-              <Plus className="size-5" />
+              <img
+                src={user?.image || assets.avatar_icon}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             </button>
-            <div className="relative py-2">
-              <button
-                type="button"
-                title="Menu"
-                onClick={() => setShowMenu((value) => !value)}
-                className="h-10 w-10 rounded-full flex items-center justify-center hover:bg-emerald-50 transition"
-              >
-                <MoreVertical className="size-5 cursor-pointer" />
-              </button>
-              <div
-                className={`absolute top-full right-0 z-20 w-36 p-2 rounded-md bg-white border border-emerald-100 text-slate-800 shadow-xl ${showMenu ? "block" : "hidden"}`}
-              >
-                <p
-                  onClick={() => navigate("/profile")}
-                  className="cursor-pointer text-sm rounded px-3 py-2 hover:bg-emerald-50"
-                >
-                  Edit Profile
-                </p>
-                <p className="cursor-pointer text-sm rounded px-3 py-2 hover:bg-emerald-50">
-                  Logout
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -290,7 +272,11 @@ const SideBar = ({ slectedUser, setSlectedUser }) => {
               />
             </div>
           </div>
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50">
+          <button
+            type="button"
+            onClick={onCreateGroup}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50"
+          >
             <span className="h-9 w-9 rounded-full bg-[#00a884] text-white flex items-center justify-center">
               <Users className="size-5" />
             </span>
@@ -330,7 +316,15 @@ const SideBar = ({ slectedUser, setSlectedUser }) => {
         </div>
         {renderActiveContent()}
       </div>
-      <div className="grid grid-cols-2 shrink-0 sticky bottom-0 z-10 border-t border-emerald-100 bg-white px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+      <button
+        type="button"
+        title="New chat"
+        onClick={() => setShowNewChat((value) => !value)}
+        className="absolute bottom-20 right-5 z-20 h-14 w-14 rounded-2xl bg-[#00a884] text-white shadow-xl shadow-emerald-900/20 grid place-items-center hover:bg-[#008f72] transition"
+      >
+        <Plus className="size-6" />
+      </button>
+      <div className="grid grid-cols-3 shrink-0 sticky bottom-0 z-10 border-t border-emerald-100 bg-white px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {bottomTabs.map(({ label, icon: Icon }) => (
           <button
             key={label}
@@ -342,6 +336,17 @@ const SideBar = ({ slectedUser, setSlectedUser }) => {
             <span>{label}</span>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate("/", { replace: true });
+          }}
+          className="h-12 flex flex-col items-center justify-center gap-1 rounded-md text-xs font-medium transition text-slate-600 hover:bg-emerald-50 hover:text-[#075e54]"
+        >
+          <LogOut className="size-5" />
+          <span>Logout</span>
+        </button>
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import assets, { messagesDummyData } from '../assets/assets'
 import { formatMessageTime } from '../lib/utils'
-import { ArrowLeft, ImageIcon, Info, InfoIcon, MoreVertical, Phone, Search, Send, Video } from 'lucide-react'
+import { ArrowLeft, ImageIcon, Phone, Send, Video } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
-const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile}) => {
+const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile, onEditProfile}) => {
+  const { user } = useAuth()
   const scrollEnd = useRef()
   useEffect(()=>{
    if(scrollEnd.current){
@@ -42,8 +44,8 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile}
         <button type="button" title="Video call" className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
           <Video className="size-5" />
         </button>
-        <button type="button" title="Search" className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
-          <MoreVertical className="size-5" />
+        <button type="button" title="Edit profile" onClick={onEditProfile} className="h-10 w-10 rounded-full overflow-hidden border border-slate-200 hover:ring-2 hover:ring-[#00a884]">
+          <img src={user?.image || assets.avatar_icon} alt="" className="h-full w-full object-cover" />
         </button>
         {/* <button type="button" title="Contact info" onClick={onShowProfile} className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
           <Info className="size-5" />

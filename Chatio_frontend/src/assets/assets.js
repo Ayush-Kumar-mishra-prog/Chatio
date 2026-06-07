@@ -24,7 +24,7 @@ import pic3 from './pic3.png'
 import pic4 from './pic4.png'
 import img1 from './img1.jpg'
 import img2 from './img2.jpg'
-
+import facebook_icon from './downf-removebg-preview.png'
 
 const assets = {
     main_logo_: logoImage,
@@ -43,6 +43,7 @@ const assets = {
     bgImage,
     profile_martin,
     google_icon,
+    facebook_icon
     
 }
 
