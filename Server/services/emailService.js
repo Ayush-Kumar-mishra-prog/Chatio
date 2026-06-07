@@ -14,7 +14,7 @@ const getMailTransport = async () => {
       auth: { user, pass },
     });
   } catch (error) {
-    console.log("nodemailer is not installed; logging verification codes instead.");
+    console.log(error);
     return null;
   }
 };
