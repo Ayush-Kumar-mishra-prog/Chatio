@@ -46,7 +46,10 @@ export const signup = async (req, res) => {
       emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    await sendVerificationEmail({ to: normalizedEmail, code: verificationCode });
+    await sendVerificationEmail({
+      to: normalizedEmail,
+      code: verificationCode,
+    });
 
     return res.status(201).json({
       message: "Verification code sent to your email",
@@ -74,11 +77,16 @@ export const verifyEmail = async (req, res) => {
 
     if (user.isEmailVerified) {
       const token = createToken(user);
-      return res.json({ message: "Email already verified", token, user: publicUser(user) });
+      return res.json({
+        message: "Email already verified",
+        token,
+        user: publicUser(user),
+      });
     }
 
     const isExpired =
-      !user.emailVerificationExpires || user.emailVerificationExpires < new Date();
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date();
 
     if (isExpired || user.emailVerificationCode !== code?.trim()) {
       return res.status(400).json({ message: "Invalid or expired code" });
@@ -90,7 +98,11 @@ export const verifyEmail = async (req, res) => {
     await user.save();
 
     const token = createToken(user);
-    return res.json({ message: "Email verified", token, user: publicUser(user) });
+    return res.json({
+      message: "Email verified",
+      token,
+      user: publicUser(user),
+    });
   } catch (error) {
     console.error("Verify email error:", error);
     return res.status(500).json({ message: "Verification failed" });
@@ -103,7 +115,9 @@ export const login = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     const user = await GUser.findOne({ email: normalizedEmail }).select(
@@ -128,7 +142,11 @@ export const login = async (req, res) => {
     }
 
     const token = createToken(user);
-    return res.json({ message: "Login successful", token, user: publicUser(user) });
+    return res.json({
+      message: "Login successful",
+      token,
+      user: publicUser(user),
+    });
   } catch (error) {
     console.error("Login error:", error);
     return res.status(500).json({ message: "Login failed" });
@@ -138,7 +156,12 @@ export const login = async (req, res) => {
 export const facebookLogin = async (req, res) => {
   try {
     const { accessToken, facebookId, name, email, image } = req.body;
-    let profile = { id: facebookId, name, email, picture: { data: { url: image } } };
+    let profile = {
+      id: facebookId,
+      name,
+      email,
+      picture: { data: { url: image } },
+    };
 
     if (accessToken) {
       const { data } = await axios.get("https://graph.facebook.com/me", {
@@ -173,16 +196,22 @@ export const facebookLogin = async (req, res) => {
     } else {
       user.facebookId = user.facebookId || profile.id;
       user.image = user.image || profile.picture?.data?.url || image || "";
-      user.authProvider = user.authProvider === "local" ? "local" : "facebook";
+      user.authProvider = "facebook";
       user.isEmailVerified = true;
       await user.save();
     }
 
     const token = createToken(user);
-    return res.json({ message: "Login successful", token, user: publicUser(user) });
+    return res.json({
+      message: "Login successful",
+      token,
+      user: publicUser(user),
+    });
   } catch (error) {
     console.error("Facebook login error:", error);
-    return res.status(500).json({ message: "Facebook login failed" });
+    const message =
+      error.response?.data?.message || error.message || "Facebook login failed";
+    return res.status(500).json({ message });
   }
 };
 

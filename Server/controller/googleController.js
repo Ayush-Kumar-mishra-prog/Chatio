@@ -32,14 +32,16 @@ const googleLogin = async (req, res) => {
     } else {
       user.googleId = user.googleId || id;
       user.image = user.image || picture;
-      user.authProvider = user.authProvider === "local" ? "local" : "google";
+      user.authProvider = "google";
       user.isEmailVerified = true;
       await user.save();
     }
 
     const token = createToken(user);
 
-    return res.status(200).json({ message: "success", token, user: publicUser(user) });
+    return res
+      .status(200)
+      .json({ message: "success", token, user: publicUser(user) });
   } catch (error) {
     console.error("Error fetching Google access token:", error);
     res
