@@ -16,9 +16,12 @@ const gSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      minlength: 8,
       default: "",
       select: false,
+      validate: {
+        validator: (value) => !value || value.length >= 8,
+        message: "Password must be at least 8 characters",
+      },
     },
     image: {
       type: String,
