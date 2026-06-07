@@ -13,38 +13,51 @@ const ProfileEditorPanel = ({ onBack }) => {
     bio: user?.bio || "",
     image: user?.image || "",
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => setForm((current) => ({ ...current, image: reader.result }));
+    reader.onload = () =>
+      setForm((current) => ({ ...current, image: reader.result }));
     reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
+      setIsSaving(true);
       const result = await updateProfile(form);
       updateUser(result.data.user);
       toast.success("Profile updated");
       onBack();
     } catch (error) {
       toast.error(error.response?.data?.message || "Profile update failed");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="h-full bg-white flex flex-col">
       <div className="h-16 bg-[#075e54] text-white flex items-center gap-4 px-4">
-        <button type="button" onClick={onBack} title="Back" className="h-10 w-10 rounded-full grid place-items-center hover:bg-white/10">
+        <button
+          type="button"
+          onClick={onBack}
+          title="Back"
+          className="h-10 w-10 rounded-full grid place-items-center hover:bg-white/10"
+        >
           <ArrowLeft className="size-5" />
         </button>
         <p className="font-semibold">Profile</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="flex-1 overflow-y-auto p-5 space-y-6"
+      >
         <div className="flex justify-center">
           <button
             type="button"
@@ -52,36 +65,84 @@ const ProfileEditorPanel = ({ onBack }) => {
             className="relative h-36 w-36 rounded-full overflow-hidden bg-slate-100"
             title="Change profile picture"
           >
-            <img src={form.image || assets.avatar_icon} alt="" className="h-full w-full object-cover" />
+            <img
+              src={form.image || assets.avatar_icon}
+              alt=""
+              className="h-full w-full object-cover"
+            />
             <span className="absolute inset-0 bg-black/35 text-white grid place-items-center opacity-0 hover:opacity-100 transition">
               <Camera className="size-7" />
             </span>
           </button>
-          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleImageChange}
+          />
         </div>
 
         <label className="block">
-          <span className="text-xs font-semibold uppercase text-[#00a884]">Your name</span>
+          <span className="text-xs font-semibold uppercase text-[#00a884]">
+            Your name
+          </span>
           <input
             value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, name: event.target.value }))
+            }
             required
             className="mt-2 w-full border-b border-emerald-200 py-3 outline-none focus:border-[#00a884]"
           />
         </label>
 
         <label className="block">
-          <span className="text-xs font-semibold uppercase text-[#00a884]">About</span>
+          <span className="text-xs font-semibold uppercase text-[#00a884]">
+            About
+          </span>
           <textarea
             value={form.bio}
-            onChange={(event) => setForm((current) => ({ ...current, bio: event.target.value }))}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, bio: event.target.value }))
+            }
             rows={4}
             className="mt-2 w-full resize-none border-b border-emerald-200 py-3 outline-none focus:border-[#00a884]"
           />
         </label>
 
-        <button type="submit" className="w-full rounded-full bg-[#00a884] py-3 text-sm font-semibold text-white hover:bg-[#008f72]">
-          Save profile
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="w-full rounded-full bg-[#00a884] py-3 text-sm font-semibold text-white hover:bg-[#008f72] disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isSaving ? (
+            <div className="flex items-center justify-center gap-2">
+              <svg
+                className="animate-spin h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              Saving...
+            </div>
+          ) : (
+            "Save profile"
+          )}
         </button>
       </form>
     </div>

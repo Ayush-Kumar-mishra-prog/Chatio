@@ -43,15 +43,20 @@ const SignUpForm = ({ onLoginClick }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleGoogleForm = async (authResult) => {
     try {
       if (!authResult?.code) return;
+      setIsLoading(true);
       const result = await googleAuth(authResult.code);
       saveSession(result.data.token, result.data.user);
       navigate("/chat", { replace: true });
       toast.success("Logged in successfully");
     } catch (error) {
       toast.error("Google signup failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -64,32 +69,37 @@ const SignUpForm = ({ onLoginClick }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
+      setIsLoading(true);
       const result = await signupUser(form);
       toast.success(result.data.message || "Verification code sent");
       navigate("/verification", { state: { email: form.email } });
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="w-full max-w-md">
-      <h2 className="text-3xl font-bold mb-6 text-center text-[#075e54]">Welcome to Chatio</h2>
+      <h2 className="text-3xl font-bold mb-6 text-center text-[#075e54]">
+        Welcome to Chatio
+      </h2>
       <p className="text-gray-600 mb-6">Please sign up for an account</p>
-       <div className="mb-4">
-          <button
-            type="button"
-            onClick={googleLogin}
-            className="text-sm bg-slate-50 text-zinc-800 border border-gray-300 hover:bg-gray-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center"
-          >
-            <img
-              src={assets.google_icon}
-              alt="Google icon"
-              className="w-10"
-            />
-            Continue with Google
-          </button>
-        </div>
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => {
+            setIsLoading(true);
+            googleLogin();
+          }}
+          disabled={isLoading}
+          className="text-sm bg-slate-50 text-zinc-800 border border-gray-300 hover:bg-gray-100 active:scale-95 transition  font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center"
+        >
+          <img src={assets.google_icon} alt="Google icon" className="w-10" />
+          {isLoading ? "Please wait..." : "Continue with Google"}
+        </button>
+      </div>
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="flex items-center gap-4">
           <button
@@ -99,14 +109,22 @@ const SignUpForm = ({ onLoginClick }) => {
             title="Upload profile picture"
           >
             {preview ? (
-              <img src={preview} alt="Profile preview" className="h-full w-full object-cover" />
+              <img
+                src={preview}
+                alt="Profile preview"
+                className="h-full w-full object-cover"
+              />
             ) : (
               <Camera className="size-7 text-[#075e54]" />
             )}
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-700">Profile picture</p>
-            <p className="text-xs text-slate-500">Add a photo for your chat profile.</p>
+            <p className="text-sm font-medium text-slate-700">
+              Profile picture
+            </p>
+            <p className="text-xs text-slate-500">
+              Add a photo for your chat profile.
+            </p>
             {preview && (
               <button
                 type="button"
@@ -162,7 +180,7 @@ const SignUpForm = ({ onLoginClick }) => {
             />
           </div>
         </div>
-        
+
         <div>
           <label
             htmlFor="email"
@@ -213,12 +231,38 @@ const SignUpForm = ({ onLoginClick }) => {
         <div className="flex items-center justify-between">
           <button
             type="submit"
+            disabled={isLoading}
             className="text-sm bg-[#00a884] hover:bg-[#008f72] active:scale-95 transition text-white font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center"
           >
-            Sign up
+            {isLoading ? (
+              <>
+                <svg
+                  className="animate-spin h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+                Signing up...
+              </>
+            ) : (
+              "Sign up"
+            )}
           </button>
         </div>
-       
       </form>
     </div>
   );

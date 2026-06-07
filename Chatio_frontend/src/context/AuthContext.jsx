@@ -26,7 +26,14 @@ export const AuthProvider = ({ children }) => {
         setUser(data.user);
         localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       })
-      .catch(() => logout())
+      .catch((error) => {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          logout();
+        } else {
+          console.error("Auth restore error:", error);
+        }
+      })
       .finally(() => setLoading(false));
   }, [token]);
 

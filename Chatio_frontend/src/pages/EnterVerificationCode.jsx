@@ -10,23 +10,30 @@ const EnterVerificationCode = () => {
   const location = useLocation();
   const { saveSession } = useAuth();
   const [code, setCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const email = location.state?.email || "";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
+      setIsVerifying(true);
       const result = await verifyEmail({ email, code });
       saveSession(result.data.token, result.data.user);
       toast.success("Email verified");
       navigate("/chat", { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || "Verification failed");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   return (
     <div className="flex justify-center items-center min-h-screen p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-8 shadow-lg">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-8 shadow-lg"
+      >
         <div className="flex items-center justify-start mb-4">
           <button
             type="button"
@@ -36,7 +43,9 @@ const EnterVerificationCode = () => {
             <ArrowLeft className="h-5 w-5" /> Back
           </button>
         </div>
-        <h1 className="text-2xl font-bold mb-4 text-[#075e54]">Enter Verification Code</h1>
+        <h1 className="text-2xl font-bold mb-4 text-[#075e54]">
+          Enter Verification Code
+        </h1>
         <p className="text-sm text-slate-600 mb-4">
           Please enter the verification code sent to {email || "your email"}.
         </p>
@@ -51,9 +60,38 @@ const EnterVerificationCode = () => {
         />
         <button
           type="submit"
+          disabled={isVerifying}
           className="text-sm bg-[#00a884] hover:bg-[#008f72] active:scale-95 transition text-white font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center mt-3"
         >
-          Next <ArrowRight className="h-4 w-4" />
+          {isVerifying ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              Verifying...
+            </>
+          ) : (
+            <>
+              Next <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </form>
     </div>
