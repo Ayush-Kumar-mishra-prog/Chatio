@@ -30,7 +30,7 @@ io.on("connection", (socket) => {
 
 dotenv.config();
 app.use(express.json({ limit: "4mb" }));
-const PORT = process.env.PORT || 8000;
+
 await connectDB();
 
 app.use(
@@ -52,6 +52,12 @@ app.use("/api/status", (req, res) => {
 app.use("/auth", g_authRouter);
 app.use("/api/message", messageRouter);
 
+if(process.env.NODE_ENV !== "production"){
+const PORT = process.env.PORT || 8000
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+}
+
+
+export default server;
