@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+export const BACKEND =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 const api = axios.create({
   baseURL: `${BACKEND}/auth`,
@@ -20,13 +21,14 @@ api.interceptors.response.use(
       // Network error
       error.response = {
         data: {
-          message: "Network error - Backend server is not accessible. Please check your connection.",
+          message:
+            "Network error - Backend server is not accessible. Please check your connection.",
         },
         status: 0,
       };
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 messageApi.interceptors.response.use(
@@ -36,13 +38,14 @@ messageApi.interceptors.response.use(
       // Network error
       error.response = {
         data: {
-          message: "Network error - Backend server is not accessible. Please check your connection.",
+          message:
+            "Network error - Backend server is not accessible. Please check your connection.",
         },
         status: 0,
       };
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export const setAuthToken = (token) => {
@@ -69,7 +72,8 @@ export const createDirectChat = (userId) =>
   messageApi.post("/conversation/direct", { userId });
 export const createGroupChat = (payload) =>
   messageApi.post("/conversation/group", payload);
-export const getChatMessages = (conversationId) => messageApi.get(`/${conversationId}`);
+export const getChatMessages = (conversationId) =>
+  messageApi.get(`/${conversationId}`);
 export const sendChatMessage = (conversationId, payload) =>
   messageApi.post(`/send/${conversationId}`, payload);
 export const toggleFavoriteChat = (conversationId) =>
