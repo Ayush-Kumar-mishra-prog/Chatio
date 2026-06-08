@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getMe, setAuthToken } from "../api/api";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
+import { BACKEND, getMe, setAuthToken } from "../api/api";
 
 const AuthContext = createContext(null);
 
@@ -12,12 +13,23 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem(USER_KEY);
     return savedUser ? JSON.parse(savedUser) : null;
   });
+  const [onlineUsers,setOnlineUsers] = useState([])
+  const [socket,setSocket] = useState(null)
   const [loading, setLoading] = useState(Boolean(token));
+
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    socket?.disconnect();
+    setAuthToken(null);
+    setToken(null);
+    setUser(null);
+  }, [socket]);
 
   useEffect(() => {
     setAuthToken(token);
     if (!token) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
 
@@ -35,7 +47,28 @@ export const AuthProvider = ({ children }) => {
         }
       })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, logout]);
+
+  useEffect(() => {
+    if (!user?._id) return undefined;
+
+    const nextSocket = io(BACKEND, {
+      query: { userId: user._id },
+      transports: ["websocket", "polling"],
+    });
+
+    queueMicrotask(() => setSocket(nextSocket));
+    nextSocket.on("getOnlineUsers", setOnlineUsers);
+
+    return () => {
+      nextSocket.off("getOnlineUsers", setOnlineUsers);
+      nextSocket.disconnect();
+      queueMicrotask(() => {
+        setSocket(null);
+        setOnlineUsers([]);
+      });
+    };
+  }, [user?._id]);
 
   const saveSession = (nextToken, nextUser) => {
     localStorage.setItem(TOKEN_KEY, nextToken);
@@ -43,14 +76,6 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(nextToken);
     setToken(nextToken);
     setUser(nextUser);
-  };
-
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setAuthToken(null);
-    setToken(null);
-    setUser(null);
   };
 
   const updateUser = (nextUser) => {
@@ -66,12 +91,13 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(token && user),
       saveSession,
       logout,
-      updateUser,
+      updateUser,onlineUsers,socket
     }),
-    [user, token, loading],
+    [user, token, loading, onlineUsers, socket, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

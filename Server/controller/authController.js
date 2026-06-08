@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import axios from "axios";
 import GUser from "../models/google.model.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
 import {
   createToken,
   createVerificationCode,
@@ -233,5 +235,24 @@ export const updateProfile = async (req, res) => {
   } catch (error) {
     console.error("Update profile error:", error);
     return res.status(500).json({ message: "Profile update failed" });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const conversations = await Conversation.find({ members: userId });
+    const conversationIds = conversations.map((conversation) => conversation._id);
+
+    await Message.deleteMany({
+      $or: [{ senderId: userId }, { conversationId: { $in: conversationIds } }],
+    });
+    await Conversation.deleteMany({ _id: { $in: conversationIds } });
+    await GUser.deleteOne({ _id: userId });
+
+    return res.json({ message: "Account deleted" });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    return res.status(500).json({ message: "Account delete failed" });
   }
 };

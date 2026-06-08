@@ -18,12 +18,23 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) => {
+const SideBar = ({
+  slectedUser,
+  setSlectedUser,
+  contacts = [],
+  conversations = [],
+  unseenMessages = {},
+  isLoading,
+  onStartDirectChat,
+  onEditProfile,
+  onCreateGroup,
+}) => {
   const navigate = useNavigate();
   const [showNewChat, setShowNewChat] = useState(false);
   const [activeTab, setActiveTab] = useState("Chats");
   const [searchTerm, setSearchTerm] = useState("");
-  const { user, logout } = useAuth();
+  const [newChatSearch, setNewChatSearch] = useState("");
+  const { user, logout, onlineUsers } = useAuth();
   const topTabs = [
     { label: "Chats", icon: MessageCircle },
     { label: "Groups", icon: Users },
@@ -33,32 +44,6 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
     { label: "Status", icon: CircleDashed },
     { label: "Calls", icon: Phone },
   ];
-  const groupDummyData = [
-    {
-      _id: "group-design",
-      fullName: "Design Team",
-      bio: "Alison: Final screens are ready",
-      members: "8 members",
-      profilePic: assets.logo_icon,
-    },
-    {
-      _id: "group-office",
-      fullName: "Office Updates",
-      bio: "Marco: Standup at 10:30",
-      members: "24 members",
-      profilePic: assets.logo_big,
-    },
-    {
-      _id: "group-family",
-      fullName: "Family Group",
-      bio: "Richard: Dinner plan?",
-      members: "6 members",
-      profilePic: assets.avatar_icon,
-    },
-  ];
-  const favoriteDummyData = userDummyData.filter(
-    (_, index) => index === 0 || index === 2 || index === 4,
-  );
   const statusDummyData = userDummyData.map((user, index) => ({
     ...user,
     statusTime: index === 0 ? "Just now" : `${index + 1}h ago`,
@@ -74,14 +59,20 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
   const filterBySearch = (items) =>
     normalizedSearch
       ? items.filter((item) =>
-          item.fullName.toLowerCase().includes(normalizedSearch),
+          (item.fullName || item.name || "").toLowerCase().includes(normalizedSearch),
         )
       : items;
-  const filteredUsers = filterBySearch(userDummyData);
-  const filteredGroups = filterBySearch(groupDummyData);
-  const filteredFavorites = filterBySearch(favoriteDummyData);
+  const filteredUsers = filterBySearch(conversations.filter((item) => item.type !== "group"));
+  const filteredGroups = filterBySearch(conversations.filter((item) => item.type === "group"));
+  const filteredFavorites = filterBySearch(conversations.filter((item) => item.isFavorite));
   const filteredStatuses = filterBySearch(statusDummyData);
   const filteredCalls = filterBySearch(callsDummyData);
+  const filteredContacts = (newChatSearch.trim()
+    ? contacts.filter((contact) =>
+        (contact.name || contact.fullName || "").toLowerCase().includes(newChatSearch.trim().toLowerCase()),
+      )
+    : contacts
+  ).filter((contact) => contact._id !== user?._id);
 
   const selectConversation = (conversation) => {
     setSlectedUser(conversation);
@@ -90,42 +81,49 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
 
   const renderConversationList = (items, type = "chat") => (
     <div className="py-2">
-      {items.map((user, index) => (
+      {!items.length && (
+        <div className="px-4 py-8 text-center text-sm text-slate-500">
+          {isLoading ? "Loading..." : type === "favorite" ? "No favorite chats yet" : "No chats yet"}
+        </div>
+      )}
+      {items.map((chat) => {
+        const isGroup = chat.type === "group";
+        const online = !isGroup && chat.members?.some((member) => member._id !== user?._id && onlineUsers.includes(member._id));
+        const unread = unseenMessages[chat._id] || 0;
+        return (
         <div
           onClick={() => {
-            selectConversation(user);
+            selectConversation(chat);
           }}
-          key={user._id}
-          className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${slectedUser?._id === user._id ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
+          key={chat._id}
+          className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${slectedUser?._id === chat._id ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
         >
           <img
-            src={user?.profilePic || assets.avatar_icon}
+            src={chat?.profilePic || assets.avatar_icon}
             alt=""
             className="h-11 w-11 object-cover rounded-full"
           />
           <div className="flex flex-col leading-5 min-w-0">
-            <p className="font-medium truncate">{user.fullName}</p>
+            <p className="font-medium truncate">{chat.fullName || chat.name}</p>
             <span
-              className={`${type === "group" ? "text-slate-500" : index < 3 ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
+              className={`${isGroup || online ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
             >
-              {type === "group"
-                ? user.members
-                : index < 3
-                  ? "Online"
-                  : "Offline"}
+              {isGroup ? `${chat.members?.length || 0} members` : online ? "Online" : "Offline"}
             </span>
-            <span className="text-xs text-slate-500 truncate">{user.bio}</span>
+            <span className="text-xs text-slate-500 truncate">
+              {chat.lastMessage?.text || chat.bio || (chat.lastMessage?.image ? "Image" : "Start chatting")}
+            </span>
           </div>
-          {type === "favorite" && (
+          {chat.isFavorite && (
             <Star className="ml-auto size-4 shrink-0 fill-[#25d366] text-[#25d366]" />
           )}
-          {type === "chat" && index > 2 && (
+          {!!unread && (
             <p className="absolute top-5 right-4 text-xs h-5 w-5 flex justify-center items-center rounded-full bg-[#25d366] text-white">
-              {index}
+              {unread}
             </p>
           )}
         </div>
-      ))}
+      )})}
     </div>
   );
 
@@ -196,8 +194,7 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
   );
 
   const renderActiveContent = () => {
-    if (activeTab === "Groups")
-      return renderConversationList(filteredGroups, "group");
+    if (activeTab === "Groups") return renderConversationList(filteredGroups, "group");
     if (activeTab === "Favorites")
       return renderConversationList(filteredFavorites, "favorite");
     if (activeTab === "Status") return renderStatusList();
@@ -268,6 +265,8 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
               <SearchIcon className="size-4 text-[#075e54]" />
               <input
                 className="w-full bg-transparent outline-none text-sm"
+                value={newChatSearch}
+                onChange={(event) => setNewChatSearch(event.target.value)}
                 placeholder="Search contacts"
               />
             </div>
@@ -282,20 +281,21 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
             </span>
             <span className="font-medium">Create group</span>
           </button>
-          {userDummyData.map((user) => (
+          {filteredContacts.map((contact) => (
             <button
-              key={user._id}
+              key={contact._id}
               onClick={() => {
-                selectConversation(user);
+                onStartDirectChat(contact);
+                setShowNewChat(false);
               }}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-emerald-50"
             >
               <img
-                src={user.profilePic || assets.avatar_icon}
+                src={contact.image || contact.profilePic || assets.avatar_icon}
                 alt=""
                 className="h-9 w-9 rounded-full object-cover"
               />
-              <span className="text-sm">{user.fullName}</span>
+              <span className="text-sm">{contact.name || contact.fullName}</span>
               <UserPlus className="ml-auto size-4 text-[#075e54]" />
             </button>
           ))}
@@ -311,7 +311,7 @@ const SideBar = ({ slectedUser, setSlectedUser, onEditProfile, onCreateGroup }) 
             ) : (
               <Clock3 className="size-4" />
             )}
-            Dummy data
+            {isLoading ? "Loading" : `${conversations.length} chats`}
           </span>
         </div>
         {renderActiveContent()}

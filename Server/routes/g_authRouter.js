@@ -2,6 +2,7 @@ import express from 'express';
 import googleLogin from '../controller/googleController.js';
 import {
   facebookLogin,
+  deleteAccount,
   getMe,
   login,
   signup,
@@ -21,5 +22,6 @@ router.post('/verify-email', verifyEmail)
 router.post('/login', login)
 router.get('/me', protect, getMe)
 router.put('/profile', protect, updateProfile)
+router.delete('/account', protect, deleteAccount)
 
 export default router

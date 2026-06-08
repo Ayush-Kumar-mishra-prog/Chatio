@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { ArrowLeft, Camera, Check, SearchIcon, Users } from "lucide-react";
-import assets, { userDummyData } from "../assets/assets";
+import assets from "../assets/assets";
 
-const CreateGroupPanel = ({ onBack, onCreate }) => {
+const CreateGroupPanel = ({ onBack, onCreate, contacts = [] }) => {
   const [step, setStep] = useState("members");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [groupName, setGroupName] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const toggleMember = (user) => {
     setSelectedMembers((current) =>
@@ -18,13 +19,17 @@ const CreateGroupPanel = ({ onBack, onCreate }) => {
   const createGroup = () => {
     if (!groupName.trim()) return;
     onCreate({
-      _id: `group-${Date.now()}`,
-      fullName: groupName.trim(),
-      bio: `${selectedMembers.length} members`,
-      members: `${selectedMembers.length} members`,
-      profilePic: assets.logo_icon,
+      name: groupName.trim(),
+      members: selectedMembers.map((member) => member._id),
+      image: assets.logo_icon,
     });
   };
+
+  const filteredContacts = searchTerm.trim()
+    ? contacts.filter((contact) =>
+        (contact.name || contact.fullName || "").toLowerCase().includes(searchTerm.trim().toLowerCase()),
+      )
+    : contacts;
 
   return (
     <div className="h-full bg-white flex flex-col">
@@ -43,11 +48,16 @@ const CreateGroupPanel = ({ onBack, onCreate }) => {
           <div className="p-4 border-b border-emerald-100">
             <div className="rounded-full bg-[#f0f2f5] flex items-center gap-2 px-4 py-3">
               <SearchIcon className="size-4 text-[#075e54]" />
-              <input className="bg-transparent outline-none text-sm flex-1" placeholder="Search contacts" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="bg-transparent outline-none text-sm flex-1"
+                placeholder="Search contacts"
+              />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {userDummyData.map((user) => {
+            {filteredContacts.map((user) => {
               const selected = selectedMembers.some((member) => member._id === user._id);
               return (
                 <button
@@ -56,9 +66,9 @@ const CreateGroupPanel = ({ onBack, onCreate }) => {
                   onClick={() => toggleMember(user)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#f0f2f5]"
                 >
-                  <img src={user.profilePic || assets.avatar_icon} alt="" className="h-11 w-11 rounded-full object-cover" />
+                  <img src={user.image || user.profilePic || assets.avatar_icon} alt="" className="h-11 w-11 rounded-full object-cover" />
                   <span className="flex-1 min-w-0">
-                    <span className="block font-medium truncate">{user.fullName}</span>
+                    <span className="block font-medium truncate">{user.name || user.fullName}</span>
                     <span className="block text-xs text-slate-500 truncate">{user.bio}</span>
                   </span>
                   <span className={`h-5 w-5 rounded-full border grid place-items-center ${selected ? "bg-[#00a884] border-[#00a884] text-white" : "border-slate-300"}`}>
@@ -67,6 +77,11 @@ const CreateGroupPanel = ({ onBack, onCreate }) => {
                 </button>
               );
             })}
+            {!filteredContacts.length && (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                No contacts found
+              </div>
+            )}
           </div>
           <div className="p-4">
             <button

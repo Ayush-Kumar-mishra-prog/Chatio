@@ -14,7 +14,7 @@ const getMailTransport = async () => {
       auth: { user, pass },
     });
   } catch (error) {
-    console.log("nodemailer is not installed; logging verification codes instead.");
+    console.error("Failed to create mail transport:", error);
     return null;
   }
 };
@@ -23,7 +23,7 @@ export const sendVerificationEmail = async ({ to, code }) => {
   const transport = await getMailTransport();
 
   if (!transport) {
-    console.log(`Verification code for ${to}: ${code}`);
+    console.error(`Failed to send verification email to ${to}`);
     return;
   }
 

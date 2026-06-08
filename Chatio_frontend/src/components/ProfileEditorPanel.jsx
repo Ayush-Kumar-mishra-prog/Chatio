@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, Camera } from "lucide-react";
+import { ArrowLeft, Camera, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import assets from "../assets/assets";
-import { updateProfile } from "../api/api";
+import { deleteAccount, updateProfile } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 
 const ProfileEditorPanel = ({ onBack }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [form, setForm] = useState({
     name: user?.name || "",
@@ -35,6 +37,21 @@ const ProfileEditorPanel = ({ onBack }) => {
       onBack();
     } catch (error) {
       toast.error(error.response?.data?.message || "Profile update failed");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Delete your account permanently?")) return;
+    try {
+      setIsSaving(true);
+      await deleteAccount();
+      logout();
+      toast.success("Account deleted");
+      navigate("/", { replace: true });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Account delete failed");
     } finally {
       setIsSaving(false);
     }
@@ -143,6 +160,16 @@ const ProfileEditorPanel = ({ onBack }) => {
           ) : (
             "Save profile"
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={isSaving}
+          className="w-full rounded-full border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-70 flex items-center justify-center gap-2"
+        >
+          <Trash2 className="size-4" />
+          Delete account
         </button>
       </form>
     </div>
