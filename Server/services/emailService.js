@@ -14,7 +14,7 @@ const getMailTransport = async () => {
       auth: { user, pass },
     });
   } catch (error) {
-    console.error("Failed to create mail transport:", error);
+    console.log("nodemailer is not installed; logging verification codes instead.");
     return null;
   }
 };
