@@ -23,7 +23,7 @@ const LoginForm = ({ onSignUpClick }) => {
       const result = await loginUser(data);
       saveSession(result.data.token, result.data.user);
       navigate("/chat", { replace: true });
-      toast.success("Login Successfully");
+      toast.success("Logged in successfully");
     } catch (error) {
       const response = error.response?.data;
       if (response?.needsVerification) {
@@ -31,7 +31,7 @@ const LoginForm = ({ onSignUpClick }) => {
         toast.info("Please verify your email first");
         return;
       }
-      toast.error(response?.message || "Invalid email id or Password");
+      toast.error(response?.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }

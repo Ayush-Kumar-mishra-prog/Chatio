@@ -45,7 +45,7 @@ const ChatPage = () => {
         setConversations((data.conversations || []).map(normalizeConversation))
         setUnseenMessages(data.unseenMessages || {})
       } catch (error) {
-        toast.error(error.response?.data?.message || "Chats load nahi ho paaye")
+        toast.error(error.response?.data?.message || "Failed to load chats")
       } finally {
         setIsSidebarLoading(false)
       }
@@ -84,7 +84,7 @@ const ChatPage = () => {
         upsertConversation(conversation)
         handleSelectUser(conversation)
       } catch (error) {
-        toast.error(error.response?.data?.message || "Chat start nahi ho paayi")
+        toast.error(error.response?.data?.message || "Failed to start chat")
       }
     }
 
@@ -95,7 +95,7 @@ const ChatPage = () => {
         upsertConversation(conversation)
         handleSelectUser(conversation)
       } catch (error) {
-        toast.error(error.response?.data?.message || "Group create nahi ho paaya")
+        toast.error(error.response?.data?.message || "Failed to create group")
       }
     }
 

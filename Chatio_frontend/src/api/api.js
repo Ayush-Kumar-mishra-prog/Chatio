@@ -4,11 +4,46 @@ export const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:800
 
 const api = axios.create({
   baseURL: `${BACKEND}/auth`,
+  timeout: 10000,
 });
 
 export const messageApi = axios.create({
   baseURL: `${BACKEND}/api/message`,
+  timeout: 10000,
 });
+
+// Error interceptor to handle network errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) {
+      // Network error
+      error.response = {
+        data: {
+          message: "Network error - Backend server is not accessible. Please check your connection.",
+        },
+        status: 0,
+      };
+    }
+    return Promise.reject(error);
+  }
+);
+
+messageApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) {
+      // Network error
+      error.response = {
+        data: {
+          message: "Network error - Backend server is not accessible. Please check your connection.",
+        },
+        status: 0,
+      };
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const setAuthToken = (token) => {
   if (token) {

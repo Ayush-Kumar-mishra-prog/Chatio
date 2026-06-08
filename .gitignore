@@ -8,3 +8,8 @@ build
 .idea
 .vscode
 *.iml
+.env.local
+.env.development
+.env.example
+NETWORK_ERROR_TROUBLESHOOTING.md
+.env.production

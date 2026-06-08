@@ -33,7 +33,13 @@ dotenv.config()
 app.use(express.json({limit: '4mb'}))
 const PORT = process.env.PORT || 8000
  await connectDB()
- app.use(cors())
+ 
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
 
 app.get('/', (req, res) => {
     res.send('Hello World!')
