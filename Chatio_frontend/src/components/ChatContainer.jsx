@@ -3,7 +3,9 @@ import assets from "../assets/assets";
 import { formatMessageTime } from "../lib/utils";
 import { ArrowLeft, ImageIcon, Phone, Send, Video, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLoading } from "../context/LoadingContext";
 import { getChatMessages, sendChatMessage } from "../api/api";
+import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "react-toastify";
 
 const MAX_IMAGES = 4;
@@ -24,6 +26,7 @@ const ChatContainer = ({
   onStartCall,
 }) => {
   const { user, socket, onlineUsers } = useAuth();
+  const { setLoading, isLoading } = useLoading();
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -62,7 +65,7 @@ const ChatContainer = ({
     if (!socket || !slectedUser?._id) return undefined;
 
     const handleNewMessage = (message) => {
-      console.log("Received new message:", message);
+      console.log("Received new message in ChatContainer:", message);
       if (message.conversationId !== slectedUser._id) return;
       setMessages((current) => appendUniqueMessage(current, message));
       onConversationUpdated?.({
@@ -73,7 +76,11 @@ const ChatContainer = ({
     };
 
     const handleMessagesSeen = ({ conversationId, messageIds = [] }) => {
-      console.log("Messages marked as seen:", conversationId, messageIds);
+      console.log(
+        "Messages marked as seen in ChatContainer:",
+        conversationId,
+        messageIds,
+      );
       if (conversationId !== slectedUser._id) return;
       setMessages((current) =>
         current.map((message) =>
@@ -91,7 +98,7 @@ const ChatContainer = ({
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
     };
-  }, [socket, slectedUser, onConversationUpdated]);
+  }, [socket, slectedUser?._id, slectedUser, onConversationUpdated]);
 
   const sendMessage = async (payload) => {
     if (!slectedUser?._id || isBlocked) return;
@@ -360,9 +367,13 @@ const ChatContainer = ({
             onClick={selectedImages.length ? handleSendImage : undefined}
             title="Send"
             disabled={isSending || isBlocked}
-            className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60"
+            className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Send className="size-5" />
+            {isSending ? (
+              <LoadingSpinner size="sm" inline />
+            ) : (
+              <Send className="size-5" />
+            )}
           </button>
         </div>
       </form>

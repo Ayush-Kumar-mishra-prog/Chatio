@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     const handleConnect = () => {
-      console.log("Socket connected:", user._id);
+      console.log("Socket connected:", user._id, "Socket ID:", nextSocket.id);
     };
 
     const handleDisconnect = (reason) => {
@@ -80,9 +80,14 @@ export const AuthProvider = ({ children }) => {
       console.error("Socket error:", error);
     };
 
+    const handleConnectError = (error) => {
+      console.error("Socket connection error:", error);
+    };
+
     nextSocket.on("connect", handleConnect);
     nextSocket.on("disconnect", handleDisconnect);
     nextSocket.on("error", handleError);
+    nextSocket.on("connect_error", handleConnectError);
     nextSocket.on("getOnlineUsers", setOnlineUsers);
 
     queueMicrotask(() => setSocket(nextSocket));
@@ -91,6 +96,7 @@ export const AuthProvider = ({ children }) => {
       nextSocket.off("connect", handleConnect);
       nextSocket.off("disconnect", handleDisconnect);
       nextSocket.off("error", handleError);
+      nextSocket.off("connect_error", handleConnectError);
       nextSocket.off("getOnlineUsers", setOnlineUsers);
       nextSocket.disconnect();
       queueMicrotask(() => {

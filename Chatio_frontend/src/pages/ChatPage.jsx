@@ -19,6 +19,7 @@ import {
   toggleFavoriteChat,
 } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { useLoading } from "../context/LoadingContext";
 import { toast } from "react-toastify";
 
 const ChatPage = () => {
@@ -34,6 +35,7 @@ const ChatPage = () => {
   const [incomingCall, setIncomingCall] = useState(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const { socket, user } = useAuth();
+  const { setLoading, isLoading } = useLoading();
 
   const normalizeConversation = (conversation) => ({
     ...conversation,
@@ -211,32 +213,78 @@ const ChatPage = () => {
   };
 
   const handleToggleFavorite = async (conversationId) => {
-    const { data } = await toggleFavoriteChat(conversationId);
-    upsertConversation(data.conversation);
+    try {
+      setLoading(`favorite_${conversationId}`, true);
+      const { data } = await toggleFavoriteChat(conversationId);
+      upsertConversation(data.conversation);
+      toast.success(
+        data.conversation.isFavorite
+          ? "Added to favorites"
+          : "Removed from favorites",
+      );
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to toggle favorite");
+    } finally {
+      setLoading(`favorite_${conversationId}`, false);
+    }
   };
 
   const handleToggleBlock = async (conversationId) => {
-    const { data } = await toggleBlockChat(conversationId);
-    upsertConversation(data.conversation);
+    try {
+      setLoading(`block_${conversationId}`, true);
+      const { data } = await toggleBlockChat(conversationId);
+      upsertConversation(data.conversation);
+      toast.success(
+        data.conversation.isBlocked ? "Chat blocked" : "Chat unblocked",
+      );
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to toggle block");
+    } finally {
+      setLoading(`block_${conversationId}`, false);
+    }
   };
 
   const handleDeleteGroup = async (conversationId) => {
-    await deleteGroupChat(conversationId);
-    setConversations((current) =>
-      current.filter((item) => item._id !== conversationId),
-    );
-    setSlectedUser(null);
-    setShowProfile(false);
+    try {
+      setLoading(`delete_${conversationId}`, true);
+      await deleteGroupChat(conversationId);
+      setConversations((current) =>
+        current.filter((item) => item._id !== conversationId),
+      );
+      setSlectedUser(null);
+      setShowProfile(false);
+      toast.success("Group deleted");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete group");
+    } finally {
+      setLoading(`delete_${conversationId}`, false);
+    }
   };
 
   const handleRemoveMember = async (conversationId, memberId) => {
-    const { data } = await removeGroupMember(conversationId, memberId);
-    upsertConversation(data.conversation);
+    try {
+      setLoading(`remove_${conversationId}_${memberId}`, true);
+      const { data } = await removeGroupMember(conversationId, memberId);
+      upsertConversation(data.conversation);
+      toast.success("Member removed");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to remove member");
+    } finally {
+      setLoading(`remove_${conversationId}_${memberId}`, false);
+    }
   };
 
   const handleAddMembers = async (conversationId, members) => {
-    const { data } = await addGroupMembers(conversationId, members);
-    upsertConversation(data.conversation);
+    try {
+      setLoading(`add_members_${conversationId}`, true);
+      const { data } = await addGroupMembers(conversationId, members);
+      upsertConversation(data.conversation);
+      toast.success("Members added");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to add members");
+    } finally {
+      setLoading(`add_members_${conversationId}`, false);
+    }
   };
 
   const handleStartCall = (conversation, type) => {
@@ -319,6 +367,13 @@ const ChatPage = () => {
           onAddMembers={handleAddMembers}
           contacts={contacts}
           onStartCall={handleStartCall}
+          isLoadingFavorite={isLoading(`favorite_${slectedUser?._id}`)}
+          isLoadingBlock={isLoading(`block_${slectedUser?._id}`)}
+          isLoadingDelete={isLoading(`delete_${slectedUser?._id}`)}
+          isLoadingRemove={(memberId) =>
+            isLoading(`remove_${slectedUser?._id}_${memberId}`)
+          }
+          isLoadingAddMembers={isLoading(`add_members_${slectedUser?._id}`)}
         />
         <CallOverlay
           activeCall={activeCall}
