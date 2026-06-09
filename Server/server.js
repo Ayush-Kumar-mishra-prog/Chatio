@@ -19,34 +19,54 @@ export const userSocketMap = {};
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
-  console.log("user connected", userId);
+  console.log("user connected", userId, "socket ID:", socket.id);
   if (userId) userSocketMap[userId] = socket.id;
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("call:invite", ({ receiverIds = [], ...payload }) => {
+    console.log("call:invite from", userId, "to", receiverIds);
     receiverIds.forEach((receiverId) => {
       const socketId = userSocketMap[receiverId];
-      if (socketId) io.to(socketId).emit("call:incoming", { ...payload, from: userId });
+      if (socketId) {
+        console.log(
+          "Emitting call:incoming to",
+          receiverId,
+          "via socket",
+          socketId,
+        );
+        io.to(socketId).emit("call:incoming", { ...payload, from: userId });
+      } else {
+        console.log("Receiver", receiverId, "not found in userSocketMap");
+      }
     });
   });
   socket.on("call:answer", ({ to, ...payload }) => {
+    console.log("call:answer from", userId, "to", to);
     const socketId = userSocketMap[to];
-    if (socketId) io.to(socketId).emit("call:answer", { ...payload, from: userId });
+    if (socketId) {
+      console.log("Emitting call:answer to", to, "via socket", socketId);
+      io.to(socketId).emit("call:answer", { ...payload, from: userId });
+    }
   });
   socket.on("call:ice", ({ to, ...payload }) => {
     const socketId = userSocketMap[to];
-    if (socketId) io.to(socketId).emit("call:ice", { ...payload, from: userId });
+    if (socketId)
+      io.to(socketId).emit("call:ice", { ...payload, from: userId });
   });
   socket.on("call:end", ({ receiverIds = [], ...payload }) => {
+    console.log("call:end from", userId, "to", receiverIds);
     receiverIds.forEach((receiverId) => {
       const socketId = userSocketMap[receiverId];
-      if (socketId) io.to(socketId).emit("call:end", { ...payload, from: userId });
+      if (socketId) {
+        console.log("Emitting call:end to", receiverId, "via socket", socketId);
+        io.to(socketId).emit("call:end", { ...payload, from: userId });
+      }
     });
   });
 
   socket.on("disconnect", () => {
-    console.log("User Disconnectd", userId);
+    console.log("User Disconnected", userId);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
@@ -78,12 +98,11 @@ app.use("/api/message", messageRouter);
 app.use("/api/calls", callRouter);
 app.use("/api/statuses", statusRouter);
 
-if(process.env.NODE_ENV !== "production"){
-const PORT = process.env.PORT || 8000
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 8000;
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 }
-
 
 export default server;

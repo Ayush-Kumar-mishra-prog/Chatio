@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { io } from "socket.io-client";
 import { BACKEND, getMe, setAuthToken } from "../api/api";
 
@@ -13,8 +20,8 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem(USER_KEY);
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [onlineUsers,setOnlineUsers] = useState([])
-  const [socket,setSocket] = useState(null)
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [socket, setSocket] = useState(null);
   const [loading, setLoading] = useState(Boolean(token));
 
   const logout = useCallback(() => {
@@ -55,12 +62,35 @@ export const AuthProvider = ({ children }) => {
     const nextSocket = io(BACKEND, {
       query: { userId: user._id },
       transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
     });
 
-    queueMicrotask(() => setSocket(nextSocket));
+    const handleConnect = () => {
+      console.log("Socket connected:", user._id);
+    };
+
+    const handleDisconnect = (reason) => {
+      console.log("Socket disconnected:", reason);
+    };
+
+    const handleError = (error) => {
+      console.error("Socket error:", error);
+    };
+
+    nextSocket.on("connect", handleConnect);
+    nextSocket.on("disconnect", handleDisconnect);
+    nextSocket.on("error", handleError);
     nextSocket.on("getOnlineUsers", setOnlineUsers);
 
+    queueMicrotask(() => setSocket(nextSocket));
+
     return () => {
+      nextSocket.off("connect", handleConnect);
+      nextSocket.off("disconnect", handleDisconnect);
+      nextSocket.off("error", handleError);
       nextSocket.off("getOnlineUsers", setOnlineUsers);
       nextSocket.disconnect();
       queueMicrotask(() => {
@@ -91,7 +121,9 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(token && user),
       saveSession,
       logout,
-      updateUser,onlineUsers,socket
+      updateUser,
+      onlineUsers,
+      socket,
     }),
     [user, token, loading, onlineUsers, socket, logout],
   );
