@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import assets from '../assets/assets'
 import { formatMessageTime } from '../lib/utils'
-import { ArrowLeft, ImageIcon, Phone, Send, Video } from 'lucide-react'
+import { ArrowLeft, ImageIcon, Phone, Send, Video, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getChatMessages, sendChatMessage } from '../api/api'
 import { toast } from 'react-toastify'
@@ -11,6 +11,7 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
   const [messages, setMessages] = useState([])
   const [messageText, setMessageText] = useState("")
   const [isSending, setIsSending] = useState(false)
+  const [selectedImage, setSelectedImage] = useState(null)
   const scrollEnd = useRef()
   const fileInputRef = useRef(null)
   const isBlocked = Boolean(slectedUser?.isBlocked || slectedUser?.blockedBy?.length)
@@ -81,9 +82,21 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
     const file = event.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => sendMessage({ image: reader.result })
+    reader.onload = () => {
+      setSelectedImage(reader.result)
+    }
     reader.readAsDataURL(file)
     event.target.value = ""
+  }
+
+  const handleSendImage = () => {
+    if (!selectedImage) return
+    sendMessage({ image: selectedImage })
+    setSelectedImage(null)
+  }
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null)
   }
 
   return slectedUser ? (
@@ -133,16 +146,16 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
         {messages.map((msg)=> {
           const isMine = msg.senderId === user?._id
           return (
-          <div key={msg._id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start flex-row-reverse"}`}>
+          <div key={msg._id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+            <div className="text-center text-xs">
+              <img src={isMine ? user?.image || assets.avatar_icon : slectedUser?.profilePic || assets.avatar_icon} alt="" className="w-7 h-7 object-cover rounded-full" />
+              <p className="text-slate-500">{ formatMessageTime(msg.createdAt) }</p>
+            </div>
             {msg.image ? (
               <img src={msg.image} alt="" className="max-w-57.5 border border-white rounded-lg overflow-hidden mb-8 shadow" />
             ):(
               <p className={`px-3 py-2 max-w-64 md:max-w-80 text-sm rounded-lg mb-2 break-words shadow-sm ${isMine ? 'rounded-br-none bg-[#d9fdd3] text-slate-900':'rounded-bl-none bg-white text-slate-900'}`}>{msg.text}</p>
             )}
-            <div className="text-center text-xs">
-        <img src={isMine ? user?.image || assets.avatar_icon : slectedUser?.profilePic || assets.avatar_icon} alt="" className="w-7 h-7 object-cover rounded-full" />
-        <p className="text-slate-500">{ formatMessageTime(msg.createdAt) }</p>
-        </div>
           </div>
         )})}
         {!messages.length && (
@@ -155,24 +168,46 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
         
       </div>
 
-      <form onSubmit={handleSubmit} className="absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3 bg-[#f0f2f5]">
-        <div className="flex-1 flex items-center bg-white shadow-sm px-3 rounded-full">
-          <input
-            type="text"
-            value={messageText}
-            disabled={isBlocked}
-            onChange={(event) => setMessageText(event.target.value)}
-            className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-slate-800 placeholder:text-slate-500 bg-transparent disabled:cursor-not-allowed"
-            placeholder={isBlocked ? "This chat is blocked" : "Send a message"}
-          />
-          <input ref={fileInputRef} type="file" id='image' accept='image/*' hidden className="" onChange={handleImageChange} />
-          <label htmlFor="image" className={isBlocked ? "pointer-events-none opacity-40" : ""}>
-            <ImageIcon className='w-6 mr-2 cursor-pointer text-slate-500' />
-          </label>
+      <form onSubmit={handleSubmit} className="absolute bottom-0 left-0 right-0 bg-[#f0f2f5]">
+        {selectedImage && (
+          <div className="px-3 pt-3 pb-2 bg-white border-t border-emerald-100">
+            <div className="relative inline-block">
+              <img src={selectedImage} alt="Preview" className="h-24 w-24 object-cover rounded-lg border-2 border-emerald-200" />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-3 p-3">
+          <div className="flex-1 flex items-center bg-white shadow-sm px-3 rounded-full">
+            <input
+              type="text"
+              value={messageText}
+              disabled={isBlocked || selectedImage}
+              onChange={(event) => setMessageText(event.target.value)}
+              className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-slate-800 placeholder:text-slate-500 bg-transparent disabled:cursor-not-allowed"
+              placeholder={isBlocked ? "This chat is blocked" : selectedImage ? "Image selected" : "Send a message"}
+            />
+            <input ref={fileInputRef} type="file" id='image' accept='image/*' hidden className="" onChange={handleImageChange} />
+            <label htmlFor="image" className={isBlocked ? "pointer-events-none opacity-40" : "cursor-pointer"}>
+              <ImageIcon className='w-6 mr-2 text-slate-500' />
+            </label>
+          </div>
+          <button 
+            type={selectedImage ? "button" : "submit"} 
+            onClick={selectedImage ? handleSendImage : undefined}
+            title="Send" 
+            disabled={isSending || isBlocked} 
+            className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60"
+          >
+            <Send className="size-5" />
+          </button>
         </div>
-        <button type="submit" title="Send" disabled={isSending || isBlocked} className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60">
-          <Send className="size-5" />
-        </button>
       </form>
 
     </div>

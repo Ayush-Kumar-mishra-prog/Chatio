@@ -14,6 +14,7 @@ import {
   Users,
   CircleDashed,
   LogOut,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -63,7 +64,13 @@ const SideBar = ({
         )
       : items;
   const filteredUsers = filterBySearch(conversations.filter((item) => item.type !== "group"));
-  const filteredGroups = filterBySearch(conversations.filter((item) => item.type === "group"));
+  const filteredGroups = filterBySearch(
+    conversations.filter((item) => {
+      if (item.type !== "group") return false;
+      // Only show groups where user is a member
+      return item.members?.some((member) => (member._id || member) === user?._id);
+    })
+  );
   const filteredFavorites = filterBySearch(conversations.filter((item) => item.isFavorite));
   const filteredStatuses = filterBySearch(statusDummyData);
   const filteredCalls = filterBySearch(callsDummyData);
@@ -258,72 +265,79 @@ const SideBar = ({
         </div>
       </div>
 
-      {showNewChat && (
-        <div className="mx-4 mt-3 rounded-lg border border-emerald-100 bg-white shadow-xl overflow-y-scroll">
-          <div className="p-3 border-b border-emerald-100">
-            <div className="flex items-center gap-2 rounded-full bg-[#f0f2f5] px-3 py-2">
-              <SearchIcon className="size-4 text-[#075e54]" />
-              <input
-                className="w-full bg-transparent outline-none text-sm"
-                value={newChatSearch}
-                onChange={(event) => setNewChatSearch(event.target.value)}
-                placeholder="Search contacts"
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCreateGroup}
-            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50"
-          >
-            <span className="h-9 w-9 rounded-full bg-[#00a884] text-white flex items-center justify-center">
-              <Users className="size-5" />
-            </span>
-            <span className="font-medium">Create group</span>
-          </button>
-          {filteredContacts.map((contact) => (
-            <button
-              key={contact._id}
-              onClick={() => {
-                onStartDirectChat(contact);
-                setShowNewChat(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-emerald-50"
-            >
-              <img
-                src={contact.image || contact.profilePic || assets.avatar_icon}
-                alt=""
-                className="h-9 w-9 rounded-full object-cover"
-              />
-              <span className="text-sm">{contact.name || contact.fullName}</span>
-              <UserPlus className="ml-auto size-4 text-[#075e54]" />
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="flex-1 min-h-0 overflow-y-scroll">
-        <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-600">{activeTab}</p>
-          <span className="text-xs text-[#00a884] flex items-center gap-1">
-            {activeTab === "Chats" ? (
-              <CheckCheck className="size-4" />
-            ) : (
-              <Clock3 className="size-4" />
-            )}
-            {isLoading ? "Loading" : `${conversations.length} chats`}
-          </span>
-        </div>
-        {renderActiveContent()}
+        {showNewChat ? (
+          <div className="h-full flex flex-col">
+            <div className="px-4 pt-3 pb-2 border-b border-emerald-100">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-semibold text-slate-600">New Chat</p>
+                <button
+                  type="button"
+                  onClick={() => setShowNewChat(false)}
+                  className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-slate-200"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-[#f0f2f5] px-3 py-2">
+                <SearchIcon className="size-4 text-[#075e54]" />
+                <input
+                  className="w-full bg-transparent outline-none text-sm"
+                  value={newChatSearch}
+                  onChange={(event) => setNewChatSearch(event.target.value)}
+                  placeholder="Search contacts"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <button
+                type="button"
+                onClick={onCreateGroup}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50 border-b border-emerald-100"
+              >
+                <span className="h-10 w-10 rounded-full bg-[#00a884] text-white flex items-center justify-center">
+                  <Users className="size-5" />
+                </span>
+                <span className="font-medium">Create group</span>
+              </button>
+              {filteredContacts.map((contact) => (
+                <button
+                  key={contact._id}
+                  onClick={() => {
+                    onStartDirectChat(contact);
+                    setShowNewChat(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50 border-b border-slate-100"
+                >
+                  <img
+                    src={contact.image || contact.profilePic || assets.avatar_icon}
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                  <span className="text-sm flex-1">{contact.name || contact.fullName}</span>
+                  <UserPlus className="size-4 text-[#075e54]" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-600">{activeTab}</p>
+              <button
+                type="button"
+                title="New chat"
+                onClick={() => setShowNewChat(true)}
+                className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
+              >
+                <Plus className="size-5" />
+              </button>
+            </div>
+            {renderActiveContent()}
+          </>
+        )}
       </div>
-      <button
-        type="button"
-        title="New chat"
-        onClick={() => setShowNewChat((value) => !value)}
-        className="absolute bottom-20 right-5 z-20 h-14 w-14 rounded-2xl bg-[#00a884] text-white shadow-xl shadow-emerald-900/20 grid place-items-center hover:bg-[#008f72] transition"
-      >
-        <Plus className="size-6" />
-      </button>
       <div className="grid grid-cols-3 shrink-0 sticky bottom-0 z-10 border-t border-emerald-100 bg-white px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {bottomTabs.map(({ label, icon: Icon }) => (
           <button

@@ -1,7 +1,9 @@
-import assets, { imagesDummyData } from '../assets/assets'
-import { ArrowLeft, Bell, Image, Lock, LogOut, Phone, Search, Star, Trash2, UserMinus, Video } from 'lucide-react'
+import assets from '../assets/assets'
+import { ArrowLeft, Bell, Image, Lock, LogOut, Phone, Search, Star, Trash2, UserMinus, Video, Users } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
+import { useEffect, useState } from 'react'
+import { getChatMessages } from '../api/api'
 
 const RightSidebar = ({
   slectedUser,
@@ -15,6 +17,26 @@ const RightSidebar = ({
   const { user, logout } = useAuth()
   const isGroup = slectedUser?.type === "group"
   const isAdmin = isGroup && slectedUser?.admins?.some((admin) => (admin._id || admin) === user?._id)
+  const [chatImages, setChatImages] = useState([])
+  const [showMembers, setShowMembers] = useState(false)
+
+  useEffect(() => {
+    if (!slectedUser?._id) return
+    const loadChatImages = async () => {
+      try {
+        const { data } = await getChatMessages(slectedUser._id)
+        const images = (data.messages || [])
+          .filter(msg => msg.image)
+          .map(msg => msg.image)
+          .reverse()
+          .slice(0, 6)
+        setChatImages(images)
+      } catch (error) {
+        setChatImages([])
+      }
+    }
+    loadChatImages()
+  }, [slectedUser?._id])
 
   const runAction = async (action, successMessage) => {
     try {
@@ -64,19 +86,21 @@ const RightSidebar = ({
         </div>
      </div>
 
-     <div className="px-5 py-4 text-xs border-b border-emerald-100">
-      <p className="font-semibold text-slate-700 flex items-center gap-2">
-        <Image className="size-4 text-[#075e54]" />
-        Media
-      </p>
-      <div className="mt-3 max-h-50 overflow-y-scroll grid grid-cols-2 gap-3 opacity-90">
-        {imagesDummyData.map((url,index)=>(
-          <div key={index} onClick={()=> window.open(url)} className="cursor-pointer">
-            <img src={url} alt="" className="h-24 w-full object-cover rounded-md" />
-          </div>
-        ))}
-      </div>
-     </div>
+     {chatImages.length > 0 && (
+       <div className="px-5 py-4 text-xs border-b border-emerald-100">
+         <p className="font-semibold text-slate-700 flex items-center gap-2">
+           <Image className="size-4 text-[#075e54]" />
+           Media ({chatImages.length})
+         </p>
+         <div className="mt-3 max-h-50 overflow-y-scroll grid grid-cols-2 gap-3 opacity-90">
+           {chatImages.map((url,index)=>(
+             <div key={index} onClick={()=> window.open(url)} className="cursor-pointer">
+               <img src={url} alt="" className="h-24 w-full object-cover rounded-md" />
+             </div>
+           ))}
+         </div>
+       </div>
+     )}
 
      <div className="px-5 py-3 space-y-1">
       <button
@@ -101,28 +125,50 @@ const RightSidebar = ({
 
      {isGroup && (
       <div className="px-5 py-3 border-t border-emerald-100">
-        <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Members</p>
-        <div className="space-y-1">
-          {slectedUser.members?.map((member) => (
-            <div key={member._id} className="flex items-center gap-3 rounded-md px-3 py-2">
-              <img src={member.image || assets.avatar_icon} alt="" className="h-8 w-8 rounded-full object-cover" />
-              <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
-              {slectedUser.admins?.some((admin) => (admin._id || admin) === member._id) && (
-                <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] text-[#075e54]">Admin</span>
-              )}
-              {isAdmin && member._id !== user?._id && (
-                <button
-                  type="button"
-                  title="Remove member"
-                  onClick={() => runAction(() => onRemoveMember(slectedUser._id, member._id), "Member removed")}
-                  className="h-8 w-8 rounded-full grid place-items-center text-red-500 hover:bg-red-50"
-                >
-                  <UserMinus className="size-4" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+        <button
+          onClick={() => setShowMembers(!showMembers)}
+          className="w-full flex items-center justify-between mb-2 text-xs font-semibold uppercase text-slate-500 hover:text-[#075e54]"
+        >
+          <span className="flex items-center gap-2">
+            <Users className="size-4" />
+            Members ({slectedUser.members?.length || 0})
+          </span>
+          <span className="text-lg">{showMembers ? '−' : '+'}</span>
+        </button>
+        {showMembers && (
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Admins</p>
+            {slectedUser.members?.filter((member) => 
+              slectedUser.admins?.some((admin) => (admin._id || admin) === member._id)
+            ).map((member) => (
+              <div key={member._id} className="flex items-center gap-3 rounded-md px-3 py-2 bg-emerald-50">
+                <img src={member.image || assets.avatar_icon} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
+                <span className="rounded-full bg-[#00a884] text-white px-2 py-1 text-[11px]">Admin</span>
+              </div>
+            ))}
+            
+            <p className="mt-3 mb-2 text-xs font-semibold uppercase text-slate-500">Members</p>
+            {slectedUser.members?.filter((member) => 
+              !slectedUser.admins?.some((admin) => (admin._id || admin) === member._id)
+            ).map((member) => (
+              <div key={member._id} className="flex items-center gap-3 rounded-md px-3 py-2">
+                <img src={member.image || assets.avatar_icon} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
+                {isAdmin && member._id !== user?._id && (
+                  <button
+                    type="button"
+                    title="Remove member"
+                    onClick={() => runAction(() => onRemoveMember(slectedUser._id, member._id), "Member removed")}
+                    className="h-8 w-8 rounded-full grid place-items-center text-red-500 hover:bg-red-50"
+                  >
+                    <UserMinus className="size-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
      )}
 
