@@ -6,12 +6,15 @@ import { useAuth } from '../context/AuthContext'
 import { getChatMessages, sendChatMessage } from '../api/api'
 import { toast } from 'react-toastify'
 
-const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile, onEditProfile, onConversationUpdated}) => {
+const MAX_IMAGES = 4
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile, onEditProfile, onConversationUpdated, onStartCall}) => {
   const { user, socket, onlineUsers } = useAuth()
   const [messages, setMessages] = useState([])
   const [messageText, setMessageText] = useState("")
   const [isSending, setIsSending] = useState(false)
-  const [selectedImage, setSelectedImage] = useState(null)
+  const [selectedImages, setSelectedImages] = useState([])
   const scrollEnd = useRef()
   const fileInputRef = useRef(null)
   const isBlocked = Boolean(slectedUser?.isBlocked || slectedUser?.blockedBy?.length)
@@ -30,7 +33,7 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
         const { data } = await getChatMessages(slectedUser._id)
         setMessages(data.messages || [])
       } catch (error) {
-        toast.error(error.response?.data?.message || "Messages load nahi ho paaye")
+        toast.error(error.response?.data?.message || "Failed to load messages")
       }
     }
     loadMessages()
@@ -47,8 +50,20 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
         updatedAt: message.createdAt,
       })
     }
+    const handleMessagesSeen = ({ conversationId, messageIds = [] }) => {
+      if (conversationId !== slectedUser._id) return
+      setMessages((current) =>
+        current.map((message) =>
+          messageIds.includes(message._id) ? { ...message, seen: true } : message,
+        ),
+      )
+    }
     socket.on("newMessage", handleNewMessage)
-    return () => socket.off("newMessage", handleNewMessage)
+    socket.on("messagesSeen", handleMessagesSeen)
+    return () => {
+      socket.off("newMessage", handleNewMessage)
+      socket.off("messagesSeen", handleMessagesSeen)
+    }
   }, [socket, slectedUser, onConversationUpdated])
 
   const sendMessage = async (payload) => {
@@ -64,7 +79,7 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
         updatedAt: nextMessage.createdAt,
       })
     } catch (error) {
-      toast.error(error.response?.data?.message || "Message send nahi ho paaya")
+      toast.error(error.response?.data?.message || "Failed to send message")
     } finally {
       setIsSending(false)
     }
@@ -79,24 +94,42 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
   }
 
   const handleImageChange = (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setSelectedImage(reader.result)
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    if (files.length + selectedImages.length > MAX_IMAGES) {
+      toast.error("You can send up to 4 images at once")
+      event.target.value = ""
+      return
     }
-    reader.readAsDataURL(file)
+    const invalidFile = files.find((file) => file.size > MAX_IMAGE_SIZE)
+    if (invalidFile) {
+      toast.error("Each image must be 5 MB or less")
+      event.target.value = ""
+      return
+    }
+    Promise.all(
+      files.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result)
+            reader.readAsDataURL(file)
+          }),
+      ),
+    ).then((images) => setSelectedImages((current) => [...current, ...images]))
     event.target.value = ""
   }
 
   const handleSendImage = () => {
-    if (!selectedImage) return
-    sendMessage({ image: selectedImage })
-    setSelectedImage(null)
+    const text = messageText.trim()
+    if (!selectedImages.length && !text) return
+    sendMessage({ images: selectedImages, text })
+    setSelectedImages([])
+    setMessageText("")
   }
 
-  const handleRemoveImage = () => {
-    setSelectedImage(null)
+  const handleRemoveImage = (index) => {
+    setSelectedImages((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
   return slectedUser ? (
@@ -125,10 +158,10 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
           </span>
         </button>
         
-        <button type="button" title="Voice call" className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
+        <button type="button" title="Voice call" onClick={() => onStartCall?.(slectedUser, "voice")} className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
           <Phone className="size-5" />
         </button>
-        <button type="button" title="Video call" className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
+        <button type="button" title="Video call" onClick={() => onStartCall?.(slectedUser, "video")} className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200">
           <Video className="size-5" />
         </button>
         <button type="button" title="Edit profile" onClick={onEditProfile} className="h-10 w-10 rounded-full overflow-hidden border border-slate-200 hover:ring-2 hover:ring-[#00a884]">
@@ -151,11 +184,21 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
               <img src={isMine ? user?.image || assets.avatar_icon : slectedUser?.profilePic || assets.avatar_icon} alt="" className="w-7 h-7 object-cover rounded-full" />
               <p className="text-slate-500">{ formatMessageTime(msg.createdAt) }</p>
             </div>
-            {msg.image ? (
-              <img src={msg.image} alt="" className="max-w-57.5 border border-white rounded-lg overflow-hidden mb-8 shadow" />
-            ):(
-              <p className={`px-3 py-2 max-w-64 md:max-w-80 text-sm rounded-lg mb-2 break-words shadow-sm ${isMine ? 'rounded-br-none bg-[#d9fdd3] text-slate-900':'rounded-bl-none bg-white text-slate-900'}`}>{msg.text}</p>
-            )}
+            <div className={`max-w-72 md:max-w-96 rounded-lg mb-2 break-words shadow-sm overflow-hidden ${isMine ? 'rounded-br-none bg-[#d9fdd3] text-slate-900':'rounded-bl-none bg-white text-slate-900'}`}>
+              {!!(msg.images?.length || msg.image) && (
+                <div className={`grid gap-1 p-1 ${(msg.images?.length || 1) > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                  {(msg.images?.length ? msg.images : [msg.image]).map((url, index) => (
+                    <img key={`${msg._id}-${index}`} src={url} alt="" className="h-40 w-full object-cover rounded-md border border-white" />
+                  ))}
+                </div>
+              )}
+              {msg.text && <p className="px-3 py-2 text-sm">{msg.text}</p>}
+              {isMine && (
+                <span className={`flex justify-end px-2 pb-1 text-[11px] ${msg.seen ? "text-[#34b7f1]" : "text-slate-500"}`}>
+                  {msg.seen ? "Seen" : "Sent"}
+                </span>
+              )}
+            </div>
           </div>
         )})}
         {!messages.length && (
@@ -169,17 +212,21 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
       </div>
 
       <form onSubmit={handleSubmit} className="absolute bottom-0 left-0 right-0 bg-[#f0f2f5]">
-        {selectedImage && (
+        {!!selectedImages.length && (
           <div className="px-3 pt-3 pb-2 bg-white border-t border-emerald-100">
-            <div className="relative inline-block">
-              <img src={selectedImage} alt="Preview" className="h-24 w-24 object-cover rounded-lg border-2 border-emerald-200" />
+            <div className="flex gap-2 overflow-x-auto">
+            {selectedImages.map((image, index) => (
+            <div key={image.slice(0, 40)} className="relative shrink-0">
+              <img src={image} alt="Preview" className="h-24 w-24 object-cover rounded-lg border-2 border-emerald-200" />
               <button
                 type="button"
-                onClick={handleRemoveImage}
+                onClick={() => handleRemoveImage(index)}
                 className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
               >
                 <X className="size-4" />
               </button>
+            </div>
+            ))}
             </div>
           </div>
         )}
@@ -188,19 +235,19 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
             <input
               type="text"
               value={messageText}
-              disabled={isBlocked || selectedImage}
+              disabled={isBlocked}
               onChange={(event) => setMessageText(event.target.value)}
               className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-slate-800 placeholder:text-slate-500 bg-transparent disabled:cursor-not-allowed"
-              placeholder={isBlocked ? "This chat is blocked" : selectedImage ? "Image selected" : "Send a message"}
+              placeholder={isBlocked ? "This chat is blocked" : "Send a message"}
             />
-            <input ref={fileInputRef} type="file" id='image' accept='image/*' hidden className="" onChange={handleImageChange} />
+            <input ref={fileInputRef} type="file" id='image' accept='image/*' multiple hidden className="" onChange={handleImageChange} />
             <label htmlFor="image" className={isBlocked ? "pointer-events-none opacity-40" : "cursor-pointer"}>
               <ImageIcon className='w-6 mr-2 text-slate-500' />
             </label>
           </div>
           <button 
-            type={selectedImage ? "button" : "submit"} 
-            onClick={selectedImage ? handleSendImage : undefined}
+            type={selectedImages.length ? "button" : "submit"} 
+            onClick={selectedImages.length ? handleSendImage : undefined}
             title="Send" 
             disabled={isSending || isBlocked} 
             className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60"

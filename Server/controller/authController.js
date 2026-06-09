@@ -9,6 +9,7 @@ import {
   publicUser,
 } from "../utils/auth.js";
 import { sendVerificationEmail } from "../services/emailService.js";
+import { uploadIfNeeded } from "../utils/uploadImage.js";
 
 const normalizeEmail = (email = "") => email.trim().toLowerCase();
 
@@ -182,6 +183,8 @@ export const facebookLogin = async (req, res) => {
         .json({ message: "Facebook account must include email" });
     }
 
+    const profileImage = profile.picture?.data?.url || image || "";
+    const cloudinaryPicture = profileImage ? await uploadIfNeeded(profileImage, "chatio/profiles") : "";
     let user = await GUser.findOne({
       $or: [{ facebookId: profile.id }, { email: normalizedEmail }],
     });
@@ -190,14 +193,14 @@ export const facebookLogin = async (req, res) => {
       user = await GUser.create({
         name: profile.name,
         email: normalizedEmail,
-        image: profile.picture?.data?.url || image || "",
+        image: cloudinaryPicture,
         facebookId: profile.id,
         authProvider: "facebook",
         isEmailVerified: true,
       });
     } else {
       user.facebookId = user.facebookId || profile.id;
-      user.image = user.image || profile.picture?.data?.url || image || "";
+      user.image = user.image || cloudinaryPicture;
       user.authProvider = "facebook";
       user.isEmailVerified = true;
       await user.save();
@@ -227,7 +230,7 @@ export const updateProfile = async (req, res) => {
 
     if (name !== undefined) req.user.name = name.trim();
     if (bio !== undefined) req.user.bio = bio;
-    if (image !== undefined) req.user.image = image;
+    if (image !== undefined) req.user.image = await uploadIfNeeded(image, "chatio/profiles");
 
     await req.user.save();
 

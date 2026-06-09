@@ -4,11 +4,15 @@ import ChatContainer from "../components/ChatContainer";
 import RightSidebar from "../components/RightSidebar";
 import ProfileEditorPanel from "../components/ProfileEditorPanel";
 import CreateGroupPanel from "../components/CreateGroupPanel";
+import CallOverlay from "../components/CallOverlay";
 import {
+  addGroupMembers,
   createDirectChat,
   createGroupChat,
+  getCallLogs,
   deleteGroupChat,
   getChatSidebar,
+  getStatuses,
   removeGroupMember,
   toggleBlockChat,
   toggleFavoriteChat,
@@ -23,6 +27,9 @@ const ChatPage = () => {
   const [contacts, setContacts] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [unseenMessages, setUnseenMessages] = useState({});
+  const [callLogs, setCallLogs] = useState([]);
+  const [statuses, setStatuses] = useState([]);
+  const [activeCall, setActiveCall] = useState(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const { socket } = useAuth();
 
@@ -60,6 +67,8 @@ const ChatPage = () => {
       setContacts(data.users || []);
       setConversations((data.conversations || []).map(normalizeConversation));
       setUnseenMessages(data.unseenMessages || {});
+      getCallLogs().then((result) => setCallLogs(result.data.calls || [])).catch(() => setCallLogs([]));
+      getStatuses().then((result) => setStatuses(result.data.statuses || [])).catch(() => setStatuses([]));
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load chats");
     } finally {
@@ -85,9 +94,17 @@ const ChatPage = () => {
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     socket.on("conversationDeleted", handleConversationDeleted);
+    socket.on("call:incoming", (payload) => {
+      setActiveCall({
+        ...payload,
+        incoming: true,
+        conversation: normalizeConversation(payload.conversation),
+      });
+    });
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("conversationDeleted", handleConversationDeleted);
+      socket.off("call:incoming");
     };
   }, [socket, upsertConversation]);
 
@@ -144,6 +161,20 @@ const ChatPage = () => {
     upsertConversation(data.conversation);
   };
 
+  const handleAddMembers = async (conversationId, members) => {
+    const { data } = await addGroupMembers(conversationId, members);
+    upsertConversation(data.conversation);
+  };
+
+  const handleStartCall = (conversation, type) => {
+    setActiveCall({
+      callId: `${Date.now()}-${conversation._id}`,
+      conversation,
+      type,
+      incoming: false,
+    });
+  };
+
   const handleBackToChats = () => {
     setSlectedUser(null);
     setShowProfile(false);
@@ -173,6 +204,9 @@ const ChatPage = () => {
             onStartDirectChat={handleStartDirectChat}
             onEditProfile={() => setSidebarPanel("profile")}
             onCreateGroup={() => setSidebarPanel("group")}
+            statuses={statuses}
+            callLogs={callLogs}
+            onStartCall={handleStartCall}
           />
         )}
         <ChatContainer
@@ -182,6 +216,7 @@ const ChatPage = () => {
           onShowProfile={() => setShowProfile(true)}
           onEditProfile={() => setSidebarPanel("profile")}
           onConversationUpdated={upsertConversation}
+          onStartCall={handleStartCall}
         />
         <RightSidebar
           slectedUser={slectedUser}
@@ -191,6 +226,16 @@ const ChatPage = () => {
           onToggleBlock={handleToggleBlock}
           onDeleteGroup={handleDeleteGroup}
           onRemoveMember={handleRemoveMember}
+          onAddMembers={handleAddMembers}
+          contacts={contacts}
+          onStartCall={handleStartCall}
+        />
+        <CallOverlay
+          activeCall={activeCall}
+          onClose={() => {
+            setActiveCall(null);
+            getCallLogs().then((result) => setCallLogs(result.data.calls || [])).catch(() => {});
+          }}
         />
       </div>
     </div>

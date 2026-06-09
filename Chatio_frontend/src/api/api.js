@@ -13,6 +13,16 @@ export const messageApi = axios.create({
   timeout: 10000,
 });
 
+export const callApi = axios.create({
+  baseURL: `${BACKEND}/api/calls`,
+  timeout: 10000,
+});
+
+export const statusApi = axios.create({
+  baseURL: `${BACKEND}/api/statuses`,
+  timeout: 10000,
+});
+
 // Error interceptor to handle network errors
 api.interceptors.response.use(
   (response) => response,
@@ -48,13 +58,35 @@ messageApi.interceptors.response.use(
   },
 );
 
+[callApi, statusApi].forEach((client) => {
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (!error.response) {
+        error.response = {
+          data: {
+            message:
+              "Network error - Backend server is not accessible. Please check your connection.",
+          },
+          status: 0,
+        };
+      }
+      return Promise.reject(error);
+    },
+  );
+});
+
 export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
     messageApi.defaults.headers.common.Authorization = `Bearer ${token}`;
+    callApi.defaults.headers.common.Authorization = `Bearer ${token}`;
+    statusApi.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     delete api.defaults.headers.common.Authorization;
     delete messageApi.defaults.headers.common.Authorization;
+    delete callApi.defaults.headers.common.Authorization;
+    delete statusApi.defaults.headers.common.Authorization;
   }
 };
 
@@ -72,6 +104,8 @@ export const createDirectChat = (userId) =>
   messageApi.post("/conversation/direct", { userId });
 export const createGroupChat = (payload) =>
   messageApi.post("/conversation/group", payload);
+export const addGroupMembers = (conversationId, members) =>
+  messageApi.put(`/conversation/${conversationId}/members`, { members });
 export const getChatMessages = (conversationId) =>
   messageApi.get(`/${conversationId}`);
 export const sendChatMessage = (conversationId, payload) =>
@@ -84,5 +118,12 @@ export const removeGroupMember = (conversationId, memberId) =>
   messageApi.delete(`/conversation/${conversationId}/member/${memberId}`);
 export const deleteGroupChat = (conversationId) =>
   messageApi.delete(`/conversation/${conversationId}`);
+
+export const getCallLogs = () => callApi.get("/");
+export const createCallLog = (payload) => callApi.post("/", payload);
+
+export const getStatuses = () => statusApi.get("/");
+export const createStatus = (payload) => statusApi.post("/", payload);
+export const markStatusViewed = (statusId) => statusApi.put(`/${statusId}/view`);
 
 export default api;

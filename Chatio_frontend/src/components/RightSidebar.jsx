@@ -1,5 +1,5 @@
 import assets from '../assets/assets'
-import { ArrowLeft, Bell, Image, Lock, LogOut, Phone, Search, Star, Trash2, UserMinus, Video, Users } from 'lucide-react'
+import { ArrowLeft, Bell, Image, Lock, LogOut, Phone, Search, Star, Trash2, UserMinus, UserPlus, Video, Users } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
@@ -13,12 +13,17 @@ const RightSidebar = ({
   onToggleBlock,
   onDeleteGroup,
   onRemoveMember,
+  onAddMembers,
+  contacts = [],
+  onStartCall,
 }) => {
   const { user, logout } = useAuth()
   const isGroup = slectedUser?.type === "group"
   const isAdmin = isGroup && slectedUser?.admins?.some((admin) => (admin._id || admin) === user?._id)
   const [chatImages, setChatImages] = useState([])
   const [showMembers, setShowMembers] = useState(false)
+  const [showAddMembers, setShowAddMembers] = useState(false)
+  const [selectedMembers, setSelectedMembers] = useState([])
 
   useEffect(() => {
     if (!slectedUser?._id) return
@@ -26,8 +31,7 @@ const RightSidebar = ({
       try {
         const { data } = await getChatMessages(slectedUser._id)
         const images = (data.messages || [])
-          .filter(msg => msg.image)
-          .map(msg => msg.image)
+          .flatMap(msg => msg.images?.length ? msg.images : msg.image ? [msg.image] : [])
           .reverse()
           .slice(0, 6)
         setChatImages(images)
@@ -71,11 +75,11 @@ const RightSidebar = ({
           {isGroup ? `${slectedUser.members?.length || 0} members` : "Online"}
         </span>
         <div className="grid grid-cols-3 gap-3 w-full px-5 mt-4">
-          <button className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50">
+          <button onClick={() => onStartCall?.(slectedUser, "voice")} className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50">
             <Phone className="size-5" />
             <span className="text-xs">Audio</span>
           </button>
-          <button className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50">
+          <button onClick={() => onStartCall?.(slectedUser, "video")} className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50">
             <Video className="size-5" />
             <span className="text-xs">Video</span>
           </button>
@@ -135,6 +139,56 @@ const RightSidebar = ({
           </span>
           <span className="text-lg">{showMembers ? '−' : '+'}</span>
         </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddMembers((value) => !value)}
+            className="mb-3 w-full h-10 flex items-center gap-3 rounded-md px-3 text-sm text-[#075e54] hover:bg-emerald-50"
+          >
+            <UserPlus className="size-4" />
+            Add members
+          </button>
+        )}
+        {showAddMembers && isAdmin && (
+          <div className="mb-4 rounded-lg border border-emerald-100 p-2">
+            {contacts
+              .filter((contact) => !slectedUser.members?.some((member) => member._id === contact._id))
+              .map((contact) => {
+                const selected = selectedMembers.includes(contact._id)
+                return (
+                  <button
+                    key={contact._id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedMembers((current) =>
+                        selected ? current.filter((id) => id !== contact._id) : [...current, contact._id],
+                      )
+                    }
+                    className={`w-full flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${selected ? "bg-[#d9fdd3]" : "hover:bg-slate-50"}`}
+                  >
+                    <img src={contact.image || assets.avatar_icon} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    <span className="flex-1 truncate">{contact.name}</span>
+                  </button>
+                )
+              })}
+            {!contacts.filter((contact) => !slectedUser.members?.some((member) => member._id === contact._id)).length && (
+              <p className="py-4 text-center text-sm text-slate-500">No contacts to add</p>
+            )}
+            <button
+              type="button"
+              disabled={!selectedMembers.length}
+              onClick={() =>
+                runAction(async () => {
+                  await onAddMembers(slectedUser._id, selectedMembers)
+                  setSelectedMembers([])
+                  setShowAddMembers(false)
+                }, "Members added")
+              }
+              className="mt-2 w-full rounded-full bg-[#00a884] py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Add selected
+            </button>
+          </div>
+        )}
         {showMembers && (
           <div className="space-y-1 max-h-64 overflow-y-auto">
             <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Admins</p>

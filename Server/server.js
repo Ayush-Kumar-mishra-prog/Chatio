@@ -5,6 +5,8 @@ import http from "http";
 import dotenv from "dotenv";
 import connectDB from "./configs/db.js";
 import messageRouter from "./routes/messageRoutes.js";
+import callRouter from "./routes/callRoutes.js";
+import statusRouter from "./routes/statusRoutes.js";
 import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +23,28 @@ io.on("connection", (socket) => {
   if (userId) userSocketMap[userId] = socket.id;
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  socket.on("call:invite", ({ receiverIds = [], ...payload }) => {
+    receiverIds.forEach((receiverId) => {
+      const socketId = userSocketMap[receiverId];
+      if (socketId) io.to(socketId).emit("call:incoming", { ...payload, from: userId });
+    });
+  });
+  socket.on("call:answer", ({ to, ...payload }) => {
+    const socketId = userSocketMap[to];
+    if (socketId) io.to(socketId).emit("call:answer", { ...payload, from: userId });
+  });
+  socket.on("call:ice", ({ to, ...payload }) => {
+    const socketId = userSocketMap[to];
+    if (socketId) io.to(socketId).emit("call:ice", { ...payload, from: userId });
+  });
+  socket.on("call:end", ({ receiverIds = [], ...payload }) => {
+    receiverIds.forEach((receiverId) => {
+      const socketId = userSocketMap[receiverId];
+      if (socketId) io.to(socketId).emit("call:end", { ...payload, from: userId });
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log("User Disconnectd", userId);
     delete userSocketMap[userId];
@@ -29,7 +53,7 @@ io.on("connection", (socket) => {
 });
 
 dotenv.config();
-app.use(express.json({ limit: "4mb" }));
+app.use(express.json({ limit: "35mb" }));
 
 await connectDB();
 
@@ -51,6 +75,8 @@ app.use("/api/status", (req, res) => {
 
 app.use("/auth", g_authRouter);
 app.use("/api/message", messageRouter);
+app.use("/api/calls", callRouter);
+app.use("/api/statuses", statusRouter);
 
 if(process.env.NODE_ENV !== "production"){
 const PORT = process.env.PORT || 8000

@@ -6,6 +6,7 @@ const messageSchema = mongoose.Schema({
     reciverId:{type:mongoose.Schema.Types.ObjectId,ref:"User"},
     text:{type:String,},
     image:{type:String, default:""},
+    images:[{type:String}],
     seenBy:[{type:mongoose.Schema.Types.ObjectId,ref:"User"}],
     seen:{type:Boolean, default:false}
 },{timestamps:true})

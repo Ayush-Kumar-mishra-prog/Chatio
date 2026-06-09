@@ -1,5 +1,5 @@
 import { useState } from "react";
-import assets, { userDummyData } from "../assets/assets";
+import assets from "../assets/assets";
 import {
   CheckCheck,
   Clock3,
@@ -29,6 +29,9 @@ const SideBar = ({
   onStartDirectChat,
   onEditProfile,
   onCreateGroup,
+  statuses = [],
+  callLogs = [],
+  onStartCall,
 }) => {
   const navigate = useNavigate();
   const [showNewChat, setShowNewChat] = useState(false);
@@ -45,17 +48,6 @@ const SideBar = ({
     { label: "Status", icon: CircleDashed },
     { label: "Calls", icon: Phone },
   ];
-  const statusDummyData = userDummyData.map((user, index) => ({
-    ...user,
-    statusTime: index === 0 ? "Just now" : `${index + 1}h ago`,
-    statusText: index % 2 === 0 ? "New photo update" : "Available today",
-  }));
-  const callsDummyData = userDummyData.map((user, index) => ({
-    ...user,
-    callType: index % 2 === 0 ? "Incoming" : "Outgoing",
-    callTime: index === 0 ? "Today, 9:12 AM" : `Yesterday, ${index + 2}:30 PM`,
-    missed: index === 3,
-  }));
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filterBySearch = (items) =>
     normalizedSearch
@@ -72,8 +64,19 @@ const SideBar = ({
     })
   );
   const filteredFavorites = filterBySearch(conversations.filter((item) => item.isFavorite));
-  const filteredStatuses = filterBySearch(statusDummyData);
-  const filteredCalls = filterBySearch(callsDummyData);
+  const groupedStatuses = Object.values(
+    statuses.reduce((acc, status) => {
+      const owner = status.userId || {};
+      const key = owner._id || status.userId;
+      if (!key) return acc;
+      acc[key] ||= { ...owner, items: [], latest: status.createdAt };
+      acc[key].items.push(status);
+      acc[key].latest = status.createdAt;
+      return acc;
+    }, {}),
+  ).sort((a, b) => new Date(b.latest) - new Date(a.latest));
+  const filteredStatuses = filterBySearch(groupedStatuses);
+  const filteredCalls = filterBySearch(callLogs);
   const filteredContacts = (newChatSearch.trim()
     ? contacts.filter((contact) =>
         (contact.name || contact.fullName || "").toLowerCase().includes(newChatSearch.trim().toLowerCase()),
@@ -153,10 +156,10 @@ const SideBar = ({
           <span className="min-w-0">
             <span className="block font-medium truncate">{user.fullName}</span>
             <span className="block text-xs text-slate-500 truncate">
-              {user.statusText}
+              {user.items?.at(-1)?.text || (user.items?.at(-1)?.image ? "Photo" : "Status update")}
             </span>
             <span className="block text-xs text-[#00a884]">
-              {user.statusTime}
+              {formatShortTime(user.latest)}
             </span>
           </span>
         </button>
@@ -166,31 +169,40 @@ const SideBar = ({
 
   const renderCallsList = () => (
     <div className="py-2">
-      {filteredCalls.map((user) => {
+      {!filteredCalls.length && (
+        <div className="px-4 py-8 text-center text-sm text-slate-500">
+          No call history yet
+        </div>
+      )}
+      {filteredCalls.map((call) => {
+        const isOutgoing = call.callerId?._id === user?._id;
+        const peer = isOutgoing ? call.receiverIds?.[0] : call.callerId;
+        const missed = call.status === "missed";
         const CallIcon =
-          user.callType === "Incoming" ? PhoneIncoming : PhoneOutgoing;
+          isOutgoing ? PhoneOutgoing : PhoneIncoming;
         return (
           <button
-            key={user._id}
+            key={call._id}
             type="button"
+            onClick={() => call.conversationId && onStartCall?.(call.conversationId, call.type || "voice")}
             className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
           >
             <img
-              src={user.profilePic || assets.avatar_icon}
+              src={peer?.image || call.conversationId?.image || assets.avatar_icon}
               alt=""
               className="h-11 w-11 rounded-full object-cover"
             />
             <span className="min-w-0 flex-1">
               <span
-                className={`block font-medium truncate ${user.missed ? "text-red-500" : "text-slate-900"}`}
+                className={`block font-medium truncate ${missed ? "text-red-500" : "text-slate-900"}`}
               >
-                {user.fullName}
+                {peer?.name || call.conversationId?.name || "Call"}
               </span>
               <span className="flex items-center gap-1 text-xs text-slate-500">
                 <CallIcon
-                  className={`size-3.5 ${user.missed ? "text-red-500" : "text-[#00a884]"}`}
+                  className={`size-3.5 ${missed ? "text-red-500" : "text-[#00a884]"}`}
                 />
-                {user.callType} - {user.callTime}
+                {isOutgoing ? "Outgoing" : missed ? "Missed" : "Incoming"} - {formatShortTime(call.createdAt)}
               </span>
             </span>
             <Phone className="size-5 text-[#075e54]" />
@@ -364,6 +376,17 @@ const SideBar = ({
       </div>
     </div>
   );
+};
+
+const formatShortTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 export default SideBar;

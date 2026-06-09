@@ -1,8 +1,8 @@
-import  cloudinary  from "../configs/cloudniary.js";
 import Conversation from "../models/Conversation.js";
 import GUser from "../models/google.model.js";
 import Message from "../models/Message.js";
 import {io,userSocketMap}  from '../server.js'
+import { uploadIfNeeded } from "../utils/uploadImage.js";
 
 const asId = (value) => value?.toString();
 
@@ -131,6 +131,26 @@ export const createGroupConversation = async (req,res)=>{
     }
 }
 
+export const addGroupMembers = async (req,res)=>{
+    try {
+        const { members = [] } = req.body;
+        const conversation = await Conversation.findOne({_id:req.params.id,type:"group",members:req.user._id}).populate("members", "name email image bio")
+        if(!conversation) return res.status(404).json({success:false,message:"Group not found"})
+        if(!conversation.admins.some((id)=>asId(id)===asId(req.user._id))) {
+            return res.status(403).json({success:false,message:"Only group admin can add members"})
+        }
+        const currentMembers = new Set(conversation.members.map((member)=>asId(member._id)))
+        members.map(asId).filter(Boolean).forEach((memberId)=>currentMembers.add(memberId))
+        conversation.members = [...currentMembers]
+        await conversation.save()
+        await conversation.populate("members", "name email image bio")
+        emitConversationUpdate(conversation)
+        res.json({success:true,conversation:conversationPayload(conversation,req.user._id)})
+    } catch (error) {
+        res.json({success:false,message:error.message})
+    }
+}
+
 export const getMessages = async (req,res) =>{
     try {
         const {id:conversationId} = req.params
@@ -138,10 +158,20 @@ export const getMessages = async (req,res) =>{
         const conversation = await Conversation.findOne({_id:conversationId,members:myId})
         if(!conversation) return res.status(404).json({success:false,message:"Conversation not found"})
         const messages = await Message.find({conversationId}).sort({createdAt:1})
+        const unseenIncomingMessages = messages.filter(
+            (message) => asId(message.senderId) !== asId(myId) && !message.seenBy.map(asId).includes(asId(myId))
+        )
         await Message.updateMany(
             {conversationId,senderId:{$ne:myId},seenBy:{$ne:myId}},
             {$addToSet:{seenBy:myId},seen:true}
         )
+        if (unseenIncomingMessages.length) {
+            emitToConversationMembers(conversation, "messagesSeen", {
+                conversationId,
+                messageIds: unseenIncomingMessages.map((message)=>message._id),
+                seenBy: myId,
+            }, myId)
+        }
         res.json({success:true,messages})
     } catch (error) {
         console.log(error.message)
@@ -162,7 +192,7 @@ export const markMessageAsSeen = async(req,res)=>{
 
 export const sendMessage = async (req,res) =>{
     try {
-        const {text,image} = req.body;
+        const {text,image,images = []} = req.body;
         const conversationId = req.params.id;
         const senderId = req.user._id;   
         const conversation = await Conversation.findOne({_id:conversationId,members:senderId}).populate("members", "name email image bio");
@@ -171,13 +201,20 @@ export const sendMessage = async (req,res) =>{
             return res.status(403).json({success:false,message:"This chat is blocked"})
         }
 
-        let imageUrl;
-        if(image){
-            const uploadResponse = await cloudinary.uploader.upload(image)
-            imageUrl = uploadResponse.secure_url;
+        const incomingImages = [...(Array.isArray(images) ? images : []), image].filter(Boolean)
+        if (incomingImages.length > 4) {
+            return res.status(400).json({success:false,message:"You can send up to 4 images at once"})
         }
+        const uploadedImages = await Promise.all(
+            incomingImages.map((item)=>uploadIfNeeded(item, "chatio/messages"))
+        )
         const newMessage = await Message.create({
-            conversationId,senderId,text,image:imageUrl,seenBy:[senderId]
+            conversationId,
+            senderId,
+            text,
+            image: uploadedImages[0] || "",
+            images: uploadedImages,
+            seenBy:[senderId]
         })
         conversation.lastMessage = newMessage._id;
         await conversation.save();

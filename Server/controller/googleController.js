@@ -2,6 +2,7 @@ import { oauth2client } from "../configs/googleConfig.js";
 import { google } from "googleapis";
 import GUser from "../models/google.model.js";
 import { createToken, publicUser } from "../utils/auth.js";
+import { uploadIfNeeded } from "../utils/uploadImage.js";
 
 const googleLogin = async (req, res) => {
   try {
@@ -19,19 +20,20 @@ const googleLogin = async (req, res) => {
     const userRes = await oauth2.userinfo.get();
     const { id, email, name, picture } = userRes.data;
 
+    const cloudinaryPicture = picture ? await uploadIfNeeded(picture, "chatio/profiles") : "";
     let user = await GUser.findOne({ email });
     if (!user) {
       user = await GUser.create({
         name,
         email,
-        image: picture,
+        image: cloudinaryPicture,
         googleId: id,
         authProvider: "google",
         isEmailVerified: true,
       });
     } else {
       user.googleId = user.googleId || id;
-      user.image = user.image || picture;
+      user.image = user.image || cloudinaryPicture;
       user.authProvider = "google";
       user.isEmailVerified = true;
       await user.save();
