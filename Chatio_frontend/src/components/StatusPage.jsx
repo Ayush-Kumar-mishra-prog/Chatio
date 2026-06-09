@@ -159,7 +159,7 @@ const StatusPage = () => {
 
   return (
     <div className="h-screen bg-[#f0f2f5] flex justify-center">
-      <div className="h-full w-full max-w-3xl bg-white flex flex-col">
+      <div className="h-full w-full max-w-3xl bg-white flex flex-col relative">
         <div className="h-16 bg-[#075e54] text-white flex items-center gap-4 px-4">
           <button onClick={() => navigate("/chat")} className="h-10 w-10 rounded-full grid place-items-center hover:bg-white/10">
             <ArrowLeft />
@@ -168,6 +168,22 @@ const StatusPage = () => {
         </div>
 
         <div className="p-4 border-b border-emerald-100">
+          <div className="mb-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="relative h-14 w-14 rounded-full bg-slate-100"
+            >
+              <img src={user?.image || assets.avatar_icon} alt="" className="h-full w-full rounded-full object-cover" />
+              <span className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-[#00a884] text-white grid place-items-center border-2 border-white">
+                <Camera className="size-3.5" />
+              </span>
+            </button>
+            <div>
+              <p className="font-semibold">My status</p>
+              <p className="text-sm text-slate-500">Tap the camera or type below to add a status</p>
+            </div>
+          </div>
           <div className="flex gap-3">
             <button onClick={() => fileInputRef.current?.click()} className="h-12 w-12 rounded-full bg-[#00a884] text-white grid place-items-center">
               {image ? <Camera /> : <ImagePlus />}
@@ -221,6 +237,14 @@ const StatusPage = () => {
           })}
           {!groups.length && <p className="py-10 text-center text-sm text-slate-500">No statuses yet</p>}
         </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="absolute bottom-6 right-6 h-14 w-14 rounded-full bg-[#00a884] text-white shadow-lg grid place-items-center hover:bg-[#008f72]"
+          title="Add status"
+        >
+          <Camera className="size-6" />
+        </button>
       </div>
     </div>
   );

@@ -11,11 +11,12 @@ const statusSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
-      index: { expires: 0 },
     },
   },
   { timestamps: true },
 );
+
+statusSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const Status = mongoose.models.Status || mongoose.model("Status", statusSchema);
 

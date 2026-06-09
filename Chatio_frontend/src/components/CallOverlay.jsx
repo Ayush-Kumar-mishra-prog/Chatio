@@ -13,6 +13,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
+  const pendingIceRef = useRef([]);
   const [status, setStatus] = useState(activeCall?.incoming ? "Incoming call" : "Calling");
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
@@ -28,7 +29,22 @@ const CallOverlay = ({ activeCall, onClose }) => {
   useEffect(() => {
     if (!socket || !activeCall) return undefined;
 
-    const setup = async () => {
+    const setupPeer = async (stream) => {
+      const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerRef.current = peer;
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      peer.ontrack = (event) => {
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+      };
+      peer.onicecandidate = (event) => {
+        if (!event.candidate) return;
+        const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
+        targets.forEach((to) => socket.emit("call:ice", { to, candidate: event.candidate }));
+      };
+      return peer;
+    };
+
+    const startOutgoingCall = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -37,44 +53,29 @@ const CallOverlay = ({ activeCall, onClose }) => {
         localStreamRef.current = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-        const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-        peerRef.current = peer;
-        stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-        peer.ontrack = (event) => {
-          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
-        };
-        peer.onicecandidate = (event) => {
-          if (!event.candidate) return;
-          const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
-          targets.forEach((to) => socket.emit("call:ice", { to, candidate: event.candidate }));
-        };
-
-        if (!activeCall.incoming) {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-          socket.emit("call:invite", {
-            callId: activeCall.callId,
-            conversation: activeCall.conversation,
-            receiverIds,
-            type: activeCall.type,
-            offer,
-            caller: user,
-          });
-          await createCallLog({
-            conversationId: activeCall.conversation._id,
-            type: activeCall.type,
-            status: "outgoing",
-          });
-        } else if (activeCall.offer) {
-          await peer.setRemoteDescription(new RTCSessionDescription(activeCall.offer));
-        }
+        const peer = await setupPeer(stream);
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        socket.emit("call:invite", {
+          callId: activeCall.callId,
+          conversation: activeCall.conversation,
+          receiverIds,
+          type: activeCall.type,
+          offer,
+          caller: user,
+        });
+        await createCallLog({
+          conversationId: activeCall.conversation._id,
+          type: activeCall.type,
+          status: "outgoing",
+        });
       } catch (error) {
         toast.error("Call could not start. Please allow camera and microphone access.");
         onClose();
       }
     };
 
-    setup();
+    if (!activeCall.incoming) startOutgoingCall();
 
     const handleAnswer = async ({ answer }) => {
       if (!peerRef.current || !answer) return;
@@ -82,7 +83,11 @@ const CallOverlay = ({ activeCall, onClose }) => {
       setStatus("Connected");
     };
     const handleIce = async ({ candidate }) => {
-      if (!peerRef.current || !candidate) return;
+      if (!candidate) return;
+      if (!peerRef.current) {
+        pendingIceRef.current.push(candidate);
+        return;
+      }
       await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
     };
     const handleEnd = () => onClose();
@@ -101,16 +106,44 @@ const CallOverlay = ({ activeCall, onClose }) => {
   }, [activeCall, onClose, receiverIds, socket, user]);
 
   const acceptCall = async () => {
-    if (!peerRef.current || !socket) return;
-    const answer = await peerRef.current.createAnswer();
-    await peerRef.current.setLocalDescription(answer);
-    socket.emit("call:answer", { to: activeCall.from, answer, callId: activeCall.callId });
-    await createCallLog({
-      conversationId: activeCall.conversation._id,
-      type: activeCall.type,
-      status: "incoming",
-    });
-    setStatus("Connected");
+    if (!socket) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: activeCall.type === "video",
+      });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerRef.current = peer;
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      peer.ontrack = (event) => {
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+      };
+      peer.onicecandidate = (event) => {
+        if (event.candidate) socket.emit("call:ice", { to: activeCall.from, candidate: event.candidate });
+      };
+      await peer.setRemoteDescription(new RTCSessionDescription(activeCall.offer));
+      await Promise.all(
+        pendingIceRef.current.map((candidate) =>
+          peer.addIceCandidate(new RTCIceCandidate(candidate)),
+        ),
+      );
+      pendingIceRef.current = [];
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("call:answer", { to: activeCall.from, answer, callId: activeCall.callId });
+      await createCallLog({
+        conversationId: activeCall.conversation._id,
+        type: activeCall.type,
+        status: "incoming",
+      });
+      setStatus("Connected");
+    } catch (error) {
+      toast.error("Call could not start. Please allow camera and microphone access.");
+      endCall();
+    }
   };
 
   const endCall = () => {
@@ -155,6 +188,9 @@ const CallOverlay = ({ activeCall, onClose }) => {
       )}
 
       {activeCall.type === "voice" && <audio ref={remoteVideoRef} autoPlay />}
+      {activeCall.type === "voice" && (
+        <video ref={localVideoRef} autoPlay playsInline muted className="hidden" />
+      )}
 
       <div className="flex items-center gap-4 pb-8">
         <button onClick={toggleMute} className="h-14 w-14 rounded-full bg-white/10 grid place-items-center hover:bg-white/20" title="Mute">

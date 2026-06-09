@@ -219,7 +219,7 @@ export const sendMessage = async (req,res) =>{
         conversation.lastMessage = newMessage._id;
         await conversation.save();
 
-        emitToConversationMembers(conversation, "newMessage", newMessage, senderId)
+        emitToConversationMembers(conversation, "newMessage", newMessage)
         emitConversationUpdate({
             ...conversation.toObject(),
             members: conversation.members,

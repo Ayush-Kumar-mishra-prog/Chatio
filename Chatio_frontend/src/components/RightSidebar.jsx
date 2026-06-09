@@ -137,7 +137,7 @@ const RightSidebar = ({
             <Users className="size-4" />
             Members ({slectedUser.members?.length || 0})
           </span>
-          <span className="text-lg">{showMembers ? '−' : '+'}</span>
+          <span className="text-lg">{showMembers ? '-' : '+'}</span>
         </button>
         {isAdmin && (
           <button

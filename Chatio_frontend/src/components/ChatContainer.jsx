@@ -9,6 +9,11 @@ import { toast } from 'react-toastify'
 const MAX_IMAGES = 4
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
+const appendUniqueMessage = (messages, nextMessage) =>
+  messages.some((message) => message._id === nextMessage._id)
+    ? messages
+    : [...messages, nextMessage]
+
 const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile, onEditProfile, onConversationUpdated, onStartCall}) => {
   const { user, socket, onlineUsers } = useAuth()
   const [messages, setMessages] = useState([])
@@ -43,7 +48,7 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
     if (!socket || !slectedUser?._id) return undefined
     const handleNewMessage = (message) => {
       if (message.conversationId !== slectedUser._id) return
-      setMessages((current) => [...current, message])
+      setMessages((current) => appendUniqueMessage(current, message))
       onConversationUpdated?.({
         ...slectedUser,
         lastMessage: message,
@@ -72,7 +77,7 @@ const ChatContainer = ({slectedUser, setSlectedUser, showProfile, onShowProfile,
       setIsSending(true)
       const { data } = await sendChatMessage(slectedUser._id, payload)
       const nextMessage = data.newMessage
-      setMessages((current) => [...current, nextMessage])
+      setMessages((current) => appendUniqueMessage(current, nextMessage))
       onConversationUpdated?.({
         ...slectedUser,
         lastMessage: nextMessage,

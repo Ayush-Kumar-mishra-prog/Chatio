@@ -31,7 +31,7 @@ const ChatPage = () => {
   const [statuses, setStatuses] = useState([]);
   const [activeCall, setActiveCall] = useState(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
-  const { socket } = useAuth();
+  const { socket, user } = useAuth();
 
   const normalizeConversation = (conversation) => ({
     ...conversation,
@@ -94,19 +94,45 @@ const ChatPage = () => {
     };
     socket.on("conversationUpdated", handleConversationUpdated);
     socket.on("conversationDeleted", handleConversationDeleted);
-    socket.on("call:incoming", (payload) => {
+    const handleNewMessage = (message) => {
+      if (!message?.conversationId) return;
+      setConversations((current) =>
+        current
+          .map((conversation) =>
+            conversation._id === message.conversationId
+              ? { ...conversation, lastMessage: message, updatedAt: message.createdAt }
+              : conversation,
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.updatedAt || b.lastMessage?.createdAt || 0) -
+              new Date(a.updatedAt || a.lastMessage?.createdAt || 0),
+          ),
+      );
+      setUnseenMessages((current) => {
+        if (slectedUser?._id === message.conversationId || message.senderId === user?._id) return current;
+        return {
+          ...current,
+          [message.conversationId]: (current[message.conversationId] || 0) + 1,
+        };
+      });
+    };
+    const handleIncomingCall = (payload) => {
       setActiveCall({
         ...payload,
         incoming: true,
         conversation: normalizeConversation(payload.conversation),
       });
-    });
+    };
+    socket.on("newMessage", handleNewMessage);
+    socket.on("call:incoming", handleIncomingCall);
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("conversationDeleted", handleConversationDeleted);
-      socket.off("call:incoming");
+      socket.off("newMessage", handleNewMessage);
+      socket.off("call:incoming", handleIncomingCall);
     };
-  }, [socket, upsertConversation]);
+  }, [socket, upsertConversation, slectedUser?._id, user?._id]);
 
   const handleSelectUser = (user) => {
     setSlectedUser(user);
