@@ -106,8 +106,8 @@ export const createGroupChat = (payload) =>
   messageApi.post("/conversation/group", payload);
 export const addGroupMembers = (conversationId, members) =>
   messageApi.put(`/conversation/${conversationId}/members`, { members });
-export const getChatMessages = (conversationId) =>
-  messageApi.get(`/${conversationId}`);
+export const getChatMessages = (conversationId, config = {}) =>
+  messageApi.get(`/${conversationId}`, config);
 export const sendChatMessage = (conversationId, payload) =>
   messageApi.post(`/send/${conversationId}`, payload);
 export const toggleFavoriteChat = (conversationId) =>
@@ -120,6 +120,8 @@ export const deleteGroupChat = (conversationId) =>
   messageApi.delete(`/conversation/${conversationId}`);
 
 export const getCallLogs = () => callApi.get("/");
+export const getZegoToken = (roomID) =>
+  callApi.get("/zego-token", { params: { roomID } });
 export const createCallLog = (payload) => callApi.post("/", payload);
 
 export const getStatuses = () => statusApi.get("/");

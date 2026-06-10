@@ -1,10 +1,32 @@
 import Conversation from "../models/Conversation.js";
 import GUser from "../models/google.model.js";
 import Message from "../models/Message.js";
-import {io,userSocketMap}  from '../server.js'
+import {io}  from '../server.js'
 import { uploadIfNeeded } from "../utils/uploadImage.js";
 
-const asId = (value) => value?.toString();
+const asId = (value) => value?.toString?.() ?? "";
+
+const serializePayload = (payload) => {
+  if (!payload) return payload;
+  if (typeof payload.toObject === "function") return payload.toObject();
+  if (typeof payload.toJSON === "function") return payload.toJSON();
+  return JSON.parse(JSON.stringify(payload));
+};
+
+const emitToConversationMembers = (conversation, eventName, payload, exceptUserId) => {
+    conversation.members.forEach((member) => {
+        const memberId = asId(member._id || member);
+        if (exceptUserId && memberId === asId(exceptUserId)) return;
+        io.to(memberId).emit(eventName, serializePayload(payload));
+    });
+};
+
+const emitConversationUpdate = (conversation) => {
+    conversation.members.forEach((member) => {
+        const memberId = asId(member._id || member);
+        io.to(memberId).emit("conversationUpdated", conversationPayload(conversation, memberId));
+    });
+};
 
 const conversationPayload = (conversation, currentUserId) => {
     const currentId = asId(currentUserId);
@@ -46,23 +68,6 @@ const findOrCreateDirectConversation = async (currentUserId, otherUserId) => {
     }
 
     return conversation.populate("members", "name email image bio");
-};
-
-const emitToConversationMembers = (conversation, eventName, payload, exceptUserId) => {
-    conversation.members.forEach((member) => {
-        const memberId = asId(member._id || member);
-        if (exceptUserId && memberId === asId(exceptUserId)) return;
-        const socketId = userSocketMap[memberId];
-        if (socketId) io.to(socketId).emit(eventName, payload);
-    });
-};
-
-const emitConversationUpdate = (conversation) => {
-    conversation.members.forEach((member) => {
-        const memberId = asId(member._id || member);
-        const socketId = userSocketMap[memberId];
-        if (socketId) io.to(socketId).emit("conversationUpdated", conversationPayload(conversation, memberId));
-    });
 };
 
 export const getUserForSidebar = async (req,res)=>{

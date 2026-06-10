@@ -197,7 +197,7 @@ const ChatPage = () => {
     setSlectedUser(user);
     setShowProfile(false);
     setSidebarPanel("chats");
-    setUnseenMessages((current) => ({ ...current, [user._id]: 0 }));
+    setUnseenMessages((current) => ({ ...current, [asId(user._id)]: 0 }));
   };
 
   const handleStartDirectChat = async (contact) => {
@@ -297,6 +297,22 @@ const ChatPage = () => {
     }
   };
 
+  const handleStatusCreated = useCallback((status) => {
+    if (!status) return;
+    setStatuses((current) => {
+      const exists = current.some((item) => asId(item._id) === asId(status._id));
+      if (exists) return current;
+      return [...current, status];
+    });
+  }, []);
+
+  const handleStatusUpdated = useCallback((status) => {
+    if (!status) return;
+    setStatuses((current) =>
+      current.map((item) => (asId(item._id) === asId(status._id) ? status : item)),
+    );
+  }, []);
+
   const handleBackToChats = () => {
     setSlectedUser(null);
     setShowProfile(false);
@@ -330,6 +346,8 @@ const ChatPage = () => {
             callLogs={callLogs}
             onStartCall={startCall}
             currentUserId={user?._id}
+            onStatusCreated={handleStatusCreated}
+            onStatusUpdated={handleStatusUpdated}
           />
         )}
         <ChatContainer

@@ -7,9 +7,10 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import CallOverlay from "../components/CallOverlay";
+import ZegoCallOverlay from "../components/ZegoCallOverlay";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import { useAuth } from "./AuthContext";
+import { asId } from "../lib/utils";
 
 const CallContext = createContext(null);
 
@@ -40,6 +41,9 @@ export const CallProvider = ({ children }) => {
       setIncomingCall((current) =>
         !callId || current?.callId === callId ? null : current,
       );
+      setActiveCall((current) =>
+        !callId || current?.callId === callId ? null : current,
+      );
     };
 
     socket.on("call:incoming", handleIncomingCall);
@@ -52,10 +56,13 @@ export const CallProvider = ({ children }) => {
   }, [socket]);
 
   const startCall = useCallback((conversation, type) => {
+    const normalized = normalizeConversation(conversation);
+    const roomID = `chatio_${asId(normalized._id)}_${Date.now()}`;
     setIncomingCall(null);
     setActiveCall({
-      callId: `${Date.now()}-${conversation._id}`,
-      conversation: normalizeConversation(conversation),
+      callId: `${Date.now()}-${normalized._id}`,
+      roomID,
+      conversation: normalized,
       type,
       incoming: false,
     });
@@ -63,7 +70,7 @@ export const CallProvider = ({ children }) => {
 
   const acceptIncomingCall = useCallback(() => {
     if (!incomingCall) return;
-    setActiveCall({ ...incomingCall, autoAccept: true });
+    setActiveCall({ ...incomingCall, incoming: true, autoAccept: true });
     setIncomingCall(null);
     navigate("/chat");
   }, [incomingCall, navigate]);
@@ -99,10 +106,7 @@ export const CallProvider = ({ children }) => {
         onAccept={acceptIncomingCall}
         onReject={rejectIncomingCall}
       />
-      <CallOverlay
-        activeCall={activeCall}
-        onClose={endActiveCall}
-      />
+      <ZegoCallOverlay activeCall={activeCall} onClose={endActiveCall} />
     </CallContext.Provider>
   );
 };

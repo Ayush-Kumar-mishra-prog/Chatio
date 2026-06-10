@@ -1,8 +1,6 @@
 import { useState } from "react";
 import assets from "../assets/assets";
 import {
-  CheckCheck,
-  Clock3,
   MessageCircle,
   Phone,
   PhoneIncoming,
@@ -18,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { StatusAddModal, StatusStoryViewer } from "./StatusInline";
 import { asId } from "../lib/utils";
 
 const SideBar = ({
@@ -34,9 +33,13 @@ const SideBar = ({
   callLogs = [],
   onStartCall,
   currentUserId,
+  onStatusCreated,
+  onStatusUpdated,
 }) => {
   const navigate = useNavigate();
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showStatusAdd, setShowStatusAdd] = useState(false);
+  const [viewingStatusGroup, setViewingStatusGroup] = useState(null);
   const [activeTab, setActiveTab] = useState("Chats");
   const [searchTerm, setSearchTerm] = useState("");
   const [newChatSearch, setNewChatSearch] = useState("");
@@ -162,7 +165,16 @@ const SideBar = ({
     <div className="py-2">
       <button
         type="button"
-        onClick={() => navigate("/status")}
+        onClick={() => {
+          if (myStatusGroup) {
+            setViewingStatusGroup({
+              user: { _id: myStatusGroup._id, name: user?.name, image: user?.image },
+              items: myStatusGroup.items,
+            });
+          } else {
+            setShowStatusAdd(true);
+          }
+        }}
         className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
       >
         <span className="relative h-14 w-14 shrink-0">
@@ -171,7 +183,21 @@ const SideBar = ({
             alt=""
             className="h-14 w-14 rounded-full object-cover"
           />
-          <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-[#00a884] text-white grid place-items-center border-2 border-white">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowStatusAdd(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.stopPropagation();
+                setShowStatusAdd(true);
+              }
+            }}
+            className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-[#00a884] text-white grid place-items-center border-2 border-white cursor-pointer"
+          >
             <Plus className="size-3.5" />
           </span>
         </span>
@@ -179,7 +205,7 @@ const SideBar = ({
           <span className="block font-semibold">My status</span>
           <span className="block text-sm text-slate-500">
             {myStatusGroup
-              ? `${myStatusGroup.items.length} update${myStatusGroup.items.length > 1 ? "s" : ""}`
+              ? `${myStatusGroup.items.length} update${myStatusGroup.items.length > 1 ? "s" : ""} · Tap to view`
               : "Click to add status update"}
           </span>
         </span>
@@ -199,7 +225,10 @@ const SideBar = ({
             key={statusUser._id}
             type="button"
             onClick={() =>
-              navigate("/status", { state: { userId: statusUser._id } })
+              setViewingStatusGroup({
+                user: statusUser,
+                items: statusUser.items,
+              })
             }
             className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
           >
@@ -229,7 +258,7 @@ const SideBar = ({
 
       {!myStatusGroup && !filteredStatuses.length && (
         <p className="px-4 py-8 text-center text-sm text-slate-500">
-          No status updates yet. Tap My status to add one.
+          No status updates from contacts yet.
         </p>
       )}
     </div>
@@ -424,8 +453,10 @@ const SideBar = ({
               <p className="text-sm font-semibold text-slate-600">{activeTab}</p>
               <button
                 type="button"
-                title="New chat"
-                onClick={() => setShowNewChat(true)}
+                title={activeTab === "Status" ? "Add status" : "New chat"}
+                onClick={() =>
+                  activeTab === "Status" ? setShowStatusAdd(true) : setShowNewChat(true)
+                }
                 className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
               >
                 <Plus className="size-5" />
@@ -459,6 +490,22 @@ const SideBar = ({
           <span>Logout</span>
         </button>
       </div>
+
+      <StatusAddModal
+        open={showStatusAdd}
+        onClose={() => setShowStatusAdd(false)}
+        user={user}
+        onCreated={onStatusCreated}
+      />
+
+      {viewingStatusGroup && (
+        <StatusStoryViewer
+          group={viewingStatusGroup}
+          currentUserId={currentUserId}
+          onClose={() => setViewingStatusGroup(null)}
+          onStatusUpdated={onStatusUpdated}
+        />
+      )}
     </div>
   );
 };

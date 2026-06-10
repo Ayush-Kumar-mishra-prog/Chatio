@@ -12,7 +12,7 @@ const MAX_IMAGES = 4;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const appendUniqueMessage = (messages, nextMessage) =>
-  messages.some((message) => message._id === nextMessage._id)
+  messages.some((message) => asId(message._id) === asId(nextMessage._id))
     ? messages
     : [...messages, nextMessage];
 
@@ -30,6 +30,7 @@ const ChatContainer = ({
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const scrollEnd = useRef();
   const fileInputRef = useRef(null);
@@ -53,17 +54,51 @@ const ChatContainer = ({
   }, [messages]);
 
   useEffect(() => {
-    if (!slectedUser?._id) return;
+    if (!slectedUser?._id) return undefined;
+
+    const conversationId = asId(slectedUser._id);
+    const controller = new AbortController();
+
     const loadMessages = async () => {
+      setIsLoadingMessages(true);
+      setMessages([]);
       try {
-        const { data } = await getChatMessages(slectedUser._id);
-        setMessages(data.messages || []);
+        const { data } = await getChatMessages(slectedUser._id, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        setMessages((current) => {
+          const fetched = data.messages || [];
+          const merged = [...fetched];
+          current.forEach((message) => {
+            if (
+              asId(message.conversationId) === conversationId &&
+              !merged.some((item) => asId(item._id) === asId(message._id))
+            ) {
+              merged.push(message);
+            }
+          });
+          return merged.sort(
+            (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+          );
+        });
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to load messages");
+        if (!controller.signal.aborted) {
+          toast.error(error.response?.data?.message || "Failed to load messages");
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingMessages(false);
       }
     };
+
     loadMessages();
+    return () => controller.abort();
   }, [slectedUser?._id]);
+
+  const onConversationUpdatedRef = useRef(onConversationUpdated);
+  const selectedUserRef = useRef(slectedUser);
+  onConversationUpdatedRef.current = onConversationUpdated;
+  selectedUserRef.current = slectedUser;
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -72,8 +107,8 @@ const ChatContainer = ({
       if (asId(message.conversationId) !== asId(selectedConversationIdRef.current))
         return;
       setMessages((current) => appendUniqueMessage(current, message));
-      onConversationUpdated?.({
-        ...slectedUser,
+      onConversationUpdatedRef.current?.({
+        ...selectedUserRef.current,
         lastMessage: message,
         updatedAt: message.createdAt,
       });
@@ -83,7 +118,7 @@ const ChatContainer = ({
       if (asId(conversationId) !== asId(selectedConversationIdRef.current)) return;
       setMessages((current) =>
         current.map((message) =>
-          messageIds.includes(message._id)
+          messageIds.some((id) => asId(id) === asId(message._id))
             ? { ...message, seen: true }
             : message,
         ),
@@ -97,7 +132,7 @@ const ChatContainer = ({
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
     };
-  }, [socket, onConversationUpdated, slectedUser]);
+  }, [socket]);
 
   const sendMessage = async (payload) => {
     if (!slectedUser?._id || isBlocked) return;
@@ -244,7 +279,14 @@ const ChatContainer = ({
       </div>
 
       <div className="flex flex-col h-[calc(100%-128px)] overflow-y-scroll p-3 md:p-5 pb-6 bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.6),rgba(217,253,211,0.35))]">
-        {messages.map((msg) => {
+        {isLoadingMessages && (
+          <div className="flex flex-col items-center justify-center gap-3 py-16">
+            <LoadingSpinner size="lg" />
+            <p className="text-sm text-slate-500">Loading messages...</p>
+          </div>
+        )}
+        {!isLoadingMessages &&
+          messages.map((msg) => {
           const isMine = asId(msg.senderId) === asId(user?._id);
           return (
             <div
@@ -296,7 +338,7 @@ const ChatContainer = ({
             </div>
           );
         })}
-        {!messages.length && (
+        {!isLoadingMessages && !messages.length && (
           <div className="m-auto rounded-full bg-white/80 px-4 py-2 text-sm text-slate-500 shadow-sm">
             Say hello to start this chat.
           </div>

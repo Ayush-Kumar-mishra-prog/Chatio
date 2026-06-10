@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { io } from "socket.io-client";
@@ -22,16 +23,22 @@ export const AuthProvider = ({ children }) => {
   });
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socket, setSocket] = useState(null);
+  const [socketReady, setSocketReady] = useState(false);
   const [loading, setLoading] = useState(Boolean(token));
+  const socketRef = useRef(null);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    socket?.disconnect();
+    socketRef.current?.disconnect();
+    socketRef.current = null;
     setAuthToken(null);
     setToken(null);
     setUser(null);
-  }, [socket]);
+    setSocket(null);
+    setSocketReady(false);
+    setOnlineUsers([]);
+  }, []);
 
   useEffect(() => {
     setAuthToken(token);
@@ -57,10 +64,15 @@ export const AuthProvider = ({ children }) => {
   }, [token, logout]);
 
   useEffect(() => {
-    if (!user?._id) return undefined;
+    if (!user?._id) {
+      setSocket(null);
+      setSocketReady(false);
+      return undefined;
+    }
 
+    const userId = user._id?.toString?.() ?? String(user._id);
     const nextSocket = io(BACKEND, {
-      query: { userId: user._id?.toString?.() ?? user._id },
+      query: { userId },
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -69,40 +81,36 @@ export const AuthProvider = ({ children }) => {
     });
 
     const handleConnect = () => {
-      console.log("Socket connected:", user._id, "Socket ID:", nextSocket.id);
+      console.log("Socket connected:", userId);
+      setSocketReady(true);
     };
 
     const handleDisconnect = (reason) => {
       console.log("Socket disconnected:", reason);
-    };
-
-    const handleError = (error) => {
-      console.error("Socket error:", error);
-    };
-
-    const handleConnectError = (error) => {
-      console.error("Socket connection error:", error);
+      setSocketReady(false);
     };
 
     nextSocket.on("connect", handleConnect);
     nextSocket.on("disconnect", handleDisconnect);
-    nextSocket.on("error", handleError);
-    nextSocket.on("connect_error", handleConnectError);
+    nextSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      setSocketReady(false);
+    });
     nextSocket.on("getOnlineUsers", setOnlineUsers);
 
-    queueMicrotask(() => setSocket(nextSocket));
+    socketRef.current = nextSocket;
+    setSocket(nextSocket);
+    if (nextSocket.connected) setSocketReady(true);
 
     return () => {
       nextSocket.off("connect", handleConnect);
       nextSocket.off("disconnect", handleDisconnect);
-      nextSocket.off("error", handleError);
-      nextSocket.off("connect_error", handleConnectError);
       nextSocket.off("getOnlineUsers", setOnlineUsers);
       nextSocket.disconnect();
-      queueMicrotask(() => {
-        setSocket(null);
-        setOnlineUsers([]);
-      });
+      socketRef.current = null;
+      setSocket(null);
+      setSocketReady(false);
+      setOnlineUsers([]);
     };
   }, [user?._id]);
 
@@ -130,8 +138,9 @@ export const AuthProvider = ({ children }) => {
       updateUser,
       onlineUsers,
       socket,
+      socketReady,
     }),
-    [user, token, loading, onlineUsers, socket, logout],
+    [user, token, loading, onlineUsers, socket, socketReady, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

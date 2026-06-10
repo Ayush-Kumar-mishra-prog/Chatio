@@ -1,5 +1,6 @@
 import CallLog from "../models/CallLog.js";
 import Conversation from "../models/Conversation.js";
+import { generateToken04 } from "../utils/zegoServerAssistant.js";
 
 const asId = (value) => value?.toString();
 
@@ -46,5 +47,34 @@ export const createCallLog = async (req, res) => {
     res.status(201).json({ success: true, call });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getZegoToken = async (req, res) => {
+  try {
+    const appID = Number(process.env.ZEGO_APP_ID);
+    const serverSecret = process.env.ZEGO_SERVER_SECRET;
+    const { roomID } = req.query;
+
+    if (!appID || !serverSecret) {
+      return res.status(500).json({
+        success: false,
+        message: "ZegoCloud is not configured. Add ZEGO_APP_ID and ZEGO_SERVER_SECRET to .env",
+      });
+    }
+
+    if (!roomID) {
+      return res.status(400).json({ success: false, message: "roomID is required" });
+    }
+
+    const userId = asId(req.user._id);
+    const token = generateToken04(appID, userId, serverSecret, 3600, "");
+
+    res.json({ success: true, appID, token, roomID, userId });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.errorMessage || error.message || "Failed to generate Zego token",
+    });
   }
 };

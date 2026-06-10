@@ -1,7 +1,7 @@
 import Status from "../models/Status.js";
 import Conversation from "../models/Conversation.js";
 import { uploadIfNeeded } from "../utils/uploadImage.js";
-import { io, userSocketMap } from "../server.js";
+import { io } from "../server.js";
 
 const asId = (value) => value?.toString?.() ?? "";
 
@@ -17,8 +17,7 @@ const getVisibleUserIds = async (userId) => {
 const emitToUsers = (userIds, eventName, payload, exceptUserId) => {
   userIds.forEach((id) => {
     if (exceptUserId && id === asId(exceptUserId)) return;
-    const socketId = userSocketMap[id];
-    if (socketId) io.to(socketId).emit(eventName, payload);
+    io.to(id).emit(eventName, payload);
   });
 };
 
