@@ -16,7 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { asId } from "../lib/utils";
 
 const MAX_STATUS_IMAGE_SIZE = 5 * 1024 * 1024;
-const STORY_DURATION = 5000;
+const STORY_DURATION = 6000;
 
 const StatusPage = () => {
   const navigate = useNavigate();

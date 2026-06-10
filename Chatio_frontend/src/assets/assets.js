@@ -1,11 +1,12 @@
 import logoImage from './397057714_11539817.png';
-import Sideimage from './421825367_932187885143671_240639697498081366_n.webp'
+import Sideimage from './real-time-chat-application-.jpg'
 import avatar_icon from './avatar_icon.png'
 import gallery_icon from './gallery_icon.svg'
 import help_icon from './help_icon.png'
 import logo_icon from './logo_icon.svg'
 import logo_big from './logo_big.svg'
 import google_icon from './download-removebg-preview.png'
+import aiAvatar from './aiAvatar.png'
 import logo from './logo.png'
 import profile_richard from './profile_richard.png'
 import profile_alison from './profile_alison.png'
@@ -43,7 +44,8 @@ const assets = {
     bgImage,
     profile_martin,
     google_icon,
-    facebook_icon
+    facebook_icon,
+    aiAvatar
     
 }
 

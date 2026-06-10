@@ -1,0 +1,321 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Mic, MicOff, Phone, Video, VideoOff } from "lucide-react";
+import assets from "../assets/assets";
+import { createCallLog, sendCallInvite } from "../api/api";
+import { useAuth } from "../context/AuthContext";
+import { asId } from "../lib/utils";
+import { toast } from "react-toastify";
+
+const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+
+const CallOverlay = ({ activeCall, onClose }) => {
+  const { user, socket } = useAuth();
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const peerRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const pendingIceRef = useRef([]);
+  const invitedRef = useRef(false);
+  const acceptedCallRef = useRef(null);
+
+  const [status, setStatus] = useState("Calling");
+  const [muted, setMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  const receiverIds = useMemo(
+    () =>
+      activeCall?.conversation?.members
+        ?.map((member) => asId(member._id || member))
+        .filter((id) => id && id !== asId(user?._id)) || [],
+    [activeCall?.conversation?.members, user?._id],
+  );
+
+  useEffect(() => {
+    if (!activeCall) return;
+    setStatus(activeCall.incoming ? "Incoming call" : "Calling");
+    setMuted(false);
+    setCameraOff(false);
+    invitedRef.current = false;
+  }, [activeCall?.callId]);
+
+  const endCall = useCallback(() => {
+    if (!activeCall) return;
+    const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
+    socket?.emit("call:end", {
+      receiverIds: targets,
+      callId: activeCall.callId,
+    });
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    peerRef.current?.close();
+    onClose();
+  }, [activeCall, onClose, receiverIds, socket]);
+
+  const acceptCall = useCallback(async () => {
+    if (!socket || !activeCall?.offer) return;
+    try {
+      setStatus("Connecting...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: activeCall.type === "video",
+      });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerRef.current = peer;
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      peer.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream;
+      };
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("call:ice", {
+            to: activeCall.from,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      await peer.setRemoteDescription(new RTCSessionDescription(activeCall.offer));
+      await Promise.all(
+        pendingIceRef.current.map((candidate) =>
+          peer.addIceCandidate(new RTCIceCandidate(candidate)),
+        ),
+      );
+      pendingIceRef.current = [];
+
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit("call:answer", {
+        to: activeCall.from,
+        answer,
+        callId: activeCall.callId,
+      });
+
+      createCallLog({
+        conversationId: activeCall.conversation._id,
+        type: activeCall.type,
+        status: "incoming",
+      }).catch(() => {});
+
+      setStatus("Connected");
+    } catch (error) {
+      toast.error("Could not join call. Allow microphone and camera access.");
+      endCall();
+    }
+  }, [activeCall, endCall, socket]);
+
+  useEffect(() => {
+    if (!socket || !activeCall) return undefined;
+
+    const setupPeer = async (stream) => {
+      const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerRef.current = peer;
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      peer.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream;
+      };
+      peer.onicecandidate = (event) => {
+        if (!event.candidate) return;
+        const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
+        targets.forEach((to) => {
+          socket.emit("call:ice", { to, candidate: event.candidate });
+        });
+      };
+      return peer;
+    };
+
+    const startOutgoingCall = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: activeCall.type === "video",
+        });
+        localStreamRef.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+        const peer = await setupPeer(stream);
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+
+        const invitePayload = {
+          callId: activeCall.callId,
+          roomID: activeCall.roomID,
+          conversation: activeCall.conversation,
+          receiverIds,
+          type: activeCall.type,
+          offer,
+          caller: user,
+        };
+
+        if (!invitedRef.current) {
+          invitedRef.current = true;
+          await sendCallInvite(invitePayload).catch(() => {});
+          socket.emit("call:invite", invitePayload);
+          createCallLog({
+            conversationId: activeCall.conversation._id,
+            type: activeCall.type,
+            status: "outgoing",
+          }).catch(() => {});
+        }
+      } catch (error) {
+        toast.error("Call could not start. Allow microphone and camera access.");
+        onClose();
+      }
+    };
+
+    if (!activeCall.incoming) startOutgoingCall();
+
+    const handleAnswer = async ({ answer }) => {
+      if (!peerRef.current || !answer) return;
+      await peerRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      setStatus("Connected");
+    };
+
+    const handleIce = async ({ candidate }) => {
+      if (!candidate) return;
+      if (!peerRef.current) {
+        pendingIceRef.current.push(candidate);
+        return;
+      }
+      await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+    };
+
+    const handleEnd = () => onClose();
+
+    socket.on("call:answer", handleAnswer);
+    socket.on("call:ice", handleIce);
+    socket.on("call:end", handleEnd);
+
+    return () => {
+      socket.off("call:answer", handleAnswer);
+      socket.off("call:ice", handleIce);
+      socket.off("call:end", handleEnd);
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      peerRef.current?.close();
+    };
+  }, [activeCall, onClose, receiverIds, socket, user]);
+
+  useEffect(() => {
+    if (!activeCall?.incoming || !activeCall.autoAccept) return;
+    if (acceptedCallRef.current === activeCall.callId) return;
+    acceptedCallRef.current = activeCall.callId;
+    acceptCall();
+  }, [acceptCall, activeCall?.autoAccept, activeCall?.callId, activeCall?.incoming]);
+
+  const toggleMute = () => {
+    localStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = muted;
+    });
+    setMuted((value) => !value);
+  };
+
+  const toggleCamera = () => {
+    localStreamRef.current?.getVideoTracks().forEach((track) => {
+      track.enabled = cameraOff;
+    });
+    setCameraOff((value) => !value);
+  };
+
+  if (!activeCall) return null;
+
+  const peerName =
+    activeCall.conversation?.fullName ||
+    activeCall.caller?.name ||
+    "Contact";
+  const peerImage =
+    activeCall.conversation?.profilePic ||
+    activeCall.caller?.image ||
+    assets.avatar_icon;
+
+  const showAcceptUi = activeCall.incoming && status === "Incoming call";
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-[#111b21] text-white flex flex-col">
+      <div className="pt-10 pb-4 text-center">
+        <img
+          src={peerImage}
+          alt=""
+          className="mx-auto h-28 w-28 rounded-full object-cover border-4 border-white/10"
+        />
+        <h2 className="mt-5 text-2xl font-semibold">{peerName}</h2>
+        <p className="mt-1 text-sm text-white/60">{status}</p>
+      </div>
+
+      {activeCall.type === "video" ? (
+        <div className="relative flex-1 mx-4 mb-4 rounded-xl overflow-hidden bg-black">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
+          />
+          {!cameraOff && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute bottom-4 right-4 h-32 w-24 rounded-lg object-cover border-2 border-white/30 bg-slate-900"
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          <audio ref={remoteAudioRef} autoPlay />
+          <video ref={localVideoRef} autoPlay playsInline muted className="hidden" />
+          <div className="flex-1" />
+        </>
+      )}
+
+      <div className="flex items-center justify-center gap-6 pb-12 px-6">
+        <button
+          type="button"
+          onClick={toggleMute}
+          className="h-14 w-14 rounded-full bg-white/10 grid place-items-center hover:bg-white/20"
+          title="Mute"
+        >
+          {muted ? <MicOff className="size-6" /> : <Mic className="size-6" />}
+        </button>
+
+        {activeCall.type === "video" && (
+          <button
+            type="button"
+            onClick={toggleCamera}
+            className="h-14 w-14 rounded-full bg-white/10 grid place-items-center hover:bg-white/20"
+            title="Camera"
+          >
+            {cameraOff ? <VideoOff className="size-6" /> : <Video className="size-6" />}
+          </button>
+        )}
+
+        {showAcceptUi && (
+          <button
+            type="button"
+            onClick={acceptCall}
+            className="h-16 w-16 rounded-full bg-[#00a884] grid place-items-center hover:bg-[#008f72]"
+            title="Accept"
+          >
+            <Phone className="size-7" />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={endCall}
+          className="h-16 w-16 rounded-full bg-red-500 grid place-items-center hover:bg-red-600 rotate-[135deg]"
+          title="End call"
+        >
+          <Phone className="size-7" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default CallOverlay;

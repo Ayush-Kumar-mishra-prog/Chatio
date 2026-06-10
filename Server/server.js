@@ -8,6 +8,7 @@ import messageRouter from "./routes/messageRoutes.js";
 import callRouter from "./routes/callRoutes.js";
 import statusRouter from "./routes/statusRoutes.js";
 import presenceRouter from "./routes/presenceRoutes.js";
+import aiRouter from "./routes/aiRoutes.js";
 import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
@@ -34,9 +35,18 @@ io.on("connection", (socket) => {
     console.log("call:invite from", userId, "to", receiverIds);
     receiverIds.forEach((receiverId) => {
       const id = asId(receiverId);
-      console.log("Emitting call:incoming to room", id);
       io.to(id).emit("call:incoming", { ...payload, from: userId });
     });
+  });
+
+  socket.on("call:answer", ({ to, ...payload }) => {
+    const targetId = asId(to);
+    io.to(targetId).emit("call:answer", { ...payload, from: userId });
+  });
+
+  socket.on("call:ice", ({ to, ...payload }) => {
+    const targetId = asId(to);
+    io.to(targetId).emit("call:ice", { ...payload, from: userId });
   });
 
   socket.on("call:end", ({ receiverIds = [], ...payload }) => {
@@ -80,6 +90,7 @@ app.use("/api/message", messageRouter);
 app.use("/api/calls", callRouter);
 app.use("/api/statuses", statusRouter);
 app.use("/api/presence", presenceRouter);
+app.use("/api/ai", aiRouter);
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {

@@ -9,6 +9,7 @@ const callInviteSchema = new mongoose.Schema(
     conversation: { type: mongoose.Schema.Types.Mixed, default: {} },
     caller: { type: mongoose.Schema.Types.Mixed, default: {} },
     type: { type: String, enum: ["voice", "video"], required: true },
+    offer: { type: mongoose.Schema.Types.Mixed, default: null },
     status: {
       type: String,
       enum: ["ringing", "answered", "declined", "ended", "missed"],

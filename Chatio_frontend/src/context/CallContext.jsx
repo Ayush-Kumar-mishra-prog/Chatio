@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import ZegoCallOverlay from "../components/ZegoCallOverlay";
+import CallOverlay from "../components/CallOverlay";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import {
   getPendingCallInvites,
@@ -16,6 +16,7 @@ import {
 } from "../api/api";
 import { useAuth } from "./AuthContext";
 import { asId } from "../lib/utils";
+import { isMirrorAi } from "../lib/mirrorAi";
 
 const CallContext = createContext(null);
 
@@ -48,7 +49,6 @@ export const CallProvider = ({ children }) => {
     if (!socket) return undefined;
 
     const handleIncomingCall = (payload) => applyIncomingCall(payload);
-
     const handleCallEnd = ({ callId } = {}) => {
       setIncomingCall((current) =>
         !callId || current?.callId === callId ? null : current,
@@ -74,11 +74,9 @@ export const CallProvider = ({ children }) => {
       if (incomingCallRef.current || activeCallRef.current) return;
       try {
         const { data } = await getPendingCallInvites();
-        if (data.invite) {
-          applyIncomingCall(data.invite);
-        }
+        if (data.invite) applyIncomingCall(data.invite);
       } catch {
-        // ignore polling errors
+        // polling fallback when socket unavailable
       }
     };
 
@@ -88,12 +86,14 @@ export const CallProvider = ({ children }) => {
   }, [user?._id, applyIncomingCall]);
 
   const startCall = useCallback((conversation, type) => {
+    if (!conversation || conversation.type === "group" || isMirrorAi(conversation)) {
+      return;
+    }
     const normalized = normalizeConversation(conversation);
-    const roomID = `chatio_${asId(normalized._id)}_${Date.now()}`;
     setIncomingCall(null);
     setActiveCall({
       callId: `${Date.now()}-${normalized._id}`,
-      roomID,
+      roomID: `chatio_${asId(normalized._id)}_${Date.now()}`,
       conversation: normalized,
       type,
       incoming: false,
@@ -111,12 +111,10 @@ export const CallProvider = ({ children }) => {
   const rejectIncomingCall = useCallback(() => {
     if (!incomingCall) return;
     respondToCallInvite(incomingCall.callId, "decline").catch(() => {});
-    if (socket) {
-      socket.emit("call:end", {
-        receiverIds: [incomingCall.from],
-        callId: incomingCall.callId,
-      });
-    }
+    socket?.emit("call:end", {
+      receiverIds: [incomingCall.from],
+      callId: incomingCall.callId,
+    });
     setIncomingCall(null);
   }, [incomingCall, socket]);
 
@@ -125,11 +123,7 @@ export const CallProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(
-    () => ({
-      startCall,
-      activeCall,
-      incomingCall,
-    }),
+    () => ({ startCall, activeCall, incomingCall }),
     [startCall, activeCall, incomingCall],
   );
 
@@ -141,7 +135,7 @@ export const CallProvider = ({ children }) => {
         onAccept={acceptIncomingCall}
         onReject={rejectIncomingCall}
       />
-      <ZegoCallOverlay activeCall={activeCall} onClose={endActiveCall} />
+      <CallOverlay activeCall={activeCall} onClose={endActiveCall} />
     </CallContext.Provider>
   );
 };

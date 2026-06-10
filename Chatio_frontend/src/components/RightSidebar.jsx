@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
+import { isMirrorAi } from "../lib/mirrorAi";
 import { useEffect, useState } from "react";
 import { getChatMessages } from "../api/api";
 import LoadingSpinner from "./LoadingSpinner";
@@ -39,6 +40,8 @@ const RightSidebar = ({
 }) => {
   const { user, logout } = useAuth();
   const isGroup = slectedUser?.type === "group";
+  const isMirrorAiChat = isMirrorAi(slectedUser);
+  const showCallActions = !isGroup && !isMirrorAiChat;
   const isAdmin =
     isGroup &&
     slectedUser?.admins?.some((admin) => (admin._id || admin) === user?._id);
@@ -99,7 +102,9 @@ const RightSidebar = ({
             <span className="w-2 h-2 rounded-full bg-[#00a884]"></span>
             {isGroup ? `${slectedUser.members?.length || 0} members` : "Online"}
           </span>
-          <div className="grid grid-cols-3 gap-3 w-full px-5 mt-4">
+          <div className={`grid gap-3 w-full px-5 mt-4 ${showCallActions ? "grid-cols-3" : "grid-cols-1"}`}>
+            {showCallActions && (
+              <>
             <button
               onClick={() => onStartCall?.(slectedUser, "voice")}
               className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50"
@@ -114,6 +119,8 @@ const RightSidebar = ({
               <Video className="size-5" />
               <span className="text-xs">Video</span>
             </button>
+              </>
+            )}
             <button className="h-16 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 text-[#075e54] hover:bg-emerald-50">
               <Search className="size-5" />
               <span className="text-xs">Search</span>

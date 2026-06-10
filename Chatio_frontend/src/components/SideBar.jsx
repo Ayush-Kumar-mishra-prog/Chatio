@@ -18,6 +18,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { StatusAddModal, StatusStoryViewer } from "./StatusInline";
 import { asId } from "../lib/utils";
+import {
+  buildMirrorAiChat,
+  getMirrorAiPreview,
+  isMirrorAi,
+} from "../lib/mirrorAi";
 
 const SideBar = ({
   slectedUser,
@@ -120,7 +125,8 @@ const SideBar = ({
       )}
       {items.map((chat) => {
         const isGroup = chat.type === "group";
-        const online = !isGroup && chat.members?.some(
+        const isMirror = isMirrorAi(chat);
+        const online = !isGroup && !isMirror && chat.members?.some(
           (member) =>
             asId(member._id || member) !== asId(user?._id) &&
             onlineUsers.includes(asId(member._id || member)),
@@ -135,22 +141,30 @@ const SideBar = ({
           className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${asId(slectedUser?._id) === asId(chat._id) ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
         >
           <img
-            src={chat?.profilePic || assets.avatar_icon}
+            src={isMirror ? assets.aiAvatar : chat?.profilePic || assets.avatar_icon}
             alt=""
             className="h-11 w-11 object-cover rounded-full"
           />
           <div className="flex flex-col leading-5 min-w-0">
             <p className="font-medium truncate">{chat.fullName || chat.name}</p>
             <span
-              className={`${isGroup || online ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
+              className={`${isGroup || isMirror || online ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
             >
-              {isGroup ? `${chat.members?.length || 0} members` : online ? "Online" : "Offline"}
+              {isMirror
+                ? "Always available"
+                : isGroup
+                  ? `${chat.members?.length || 0} members`
+                  : online
+                    ? "Online"
+                    : "Offline"}
             </span>
             <span className="text-xs text-slate-500 truncate">
-              {chat.lastMessage?.text || chat.bio || (chat.lastMessage?.image ? "Image" : "Start chatting")}
+              {isMirror
+                ? getMirrorAiPreview(user?._id)
+                : chat.lastMessage?.text || chat.bio || (chat.lastMessage?.image ? "Image" : "Start chatting")}
             </span>
           </div>
-          {chat.isFavorite && (
+          {chat.isFavorite && !isMirror && (
             <Star className="ml-auto size-4 shrink-0 fill-[#25d366] text-[#25d366]" />
           )}
           {!!unread && (
@@ -333,7 +347,11 @@ const SideBar = ({
       return renderConversationList(filteredFavorites, "favorite");
     if (activeTab === "Status") return renderStatusList();
     if (activeTab === "Calls") return renderCallsList();
-    return renderConversationList(filteredUsers, "chat");
+    const chatItems =
+      activeTab === "Chats"
+        ? [buildMirrorAiChat(assets.aiAvatar), ...filteredUsers]
+        : filteredUsers;
+    return renderConversationList(chatItems, "chat");
   };
 
   return (
@@ -505,7 +523,7 @@ const SideBar = ({
           group={viewingStatusGroup}
           currentUserId={currentUserId}
           onClose={() => setViewingStatusGroup(null)}
-          onFinish={() => setActiveTab("Chats")}
+          onFinish={() => setActiveTab("Status")}
           onStatusUpdated={onStatusUpdated}
         />
       )}

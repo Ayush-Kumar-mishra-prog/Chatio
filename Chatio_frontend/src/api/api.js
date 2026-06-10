@@ -23,6 +23,11 @@ export const presenceApi = axios.create({
   timeout: 10000,
 });
 
+export const aiApi = axios.create({
+  baseURL: `${BACKEND}/api/ai`,
+  timeout: 60000,
+});
+
 export const statusApi = axios.create({
   baseURL: `${BACKEND}/api/statuses`,
   timeout: 10000,
@@ -63,7 +68,7 @@ messageApi.interceptors.response.use(
   },
 );
 
-[callApi, statusApi, presenceApi].forEach((client) => {
+[callApi, statusApi, presenceApi, aiApi].forEach((client) => {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -88,12 +93,14 @@ export const setAuthToken = (token) => {
     callApi.defaults.headers.common.Authorization = `Bearer ${token}`;
     statusApi.defaults.headers.common.Authorization = `Bearer ${token}`;
     presenceApi.defaults.headers.common.Authorization = `Bearer ${token}`;
+    aiApi.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     delete api.defaults.headers.common.Authorization;
     delete messageApi.defaults.headers.common.Authorization;
     delete callApi.defaults.headers.common.Authorization;
     delete statusApi.defaults.headers.common.Authorization;
     delete presenceApi.defaults.headers.common.Authorization;
+    delete aiApi.defaults.headers.common.Authorization;
   }
 };
 
@@ -127,13 +134,13 @@ export const deleteGroupChat = (conversationId) =>
   messageApi.delete(`/conversation/${conversationId}`);
 
 export const getCallLogs = () => callApi.get("/");
-export const getZegoToken = (roomID) =>
-  callApi.get("/zego-token", { params: { roomID } });
 export const sendCallInvite = (payload) => callApi.post("/invite", payload);
 export const getPendingCallInvites = () => callApi.get("/pending");
 export const respondToCallInvite = (callId, action) =>
   callApi.put(`/invite/${callId}/respond`, { action });
 export const createCallLog = (payload) => callApi.post("/", payload);
+
+export const sendMirrorAiMessage = (payload) => aiApi.post("/chat", payload);
 
 export const sendPresenceHeartbeat = () => presenceApi.post("/heartbeat");
 export const getOnlineUsersApi = (ids = []) =>

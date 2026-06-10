@@ -97,22 +97,45 @@ const LoginForm = ({ onSignUpClick }) => {
           disabled={isLoading}
         >
           <img src={assets.google_icon} alt="Google icon" className="w-10" />
-          {isLoading ? "Please wait..." : "Continue with Google"}
+          {/* {isLoading ? "Please wait..." : "Continue with Google"} */}
+          {isLoading ? (
+              <div className="flex items-center gap-2">
+                <svg
+                  className="animate-spin h-5 w-5 text-black"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  ></path>
+                </svg>
+                Please wait...
+              </div>
+            ) : (
+              "Continue with Google"
+            )}
         </button>
         <div className="relative flex justify-center item-center">
-          <img
-            src={assets.facebook_icon}
-            alt="facebook icon"
-            className="w-10 absolute top-1/2 left-1/4 transform -translate-x-1/2 -translate-y-1/2 ml-3"
-          />
+          
           <FacebookLogin
             className={`w-full flex items-center justify-center cursor-pointer rounded-md border border-gray-300 hover:bg-gray-100 active:scale-95 transition ${isLoading ? "opacity-70 pointer-events-none" : ""}`}
             appId={import.meta.env.VITE_FB_APP_ID}
             scope="public_profile,email"
             disabled={isLoading}
             style={{
-              backgroundColor: "white",
-              color: "purple",
+              backgroundColor: "#4267b2",
+              color: "#fff",
               fontSize: "16px",
               padding: "12px 24px",
               border: "none",

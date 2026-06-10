@@ -4,9 +4,14 @@ import { asId, formatMessageTime } from "../lib/utils";
 import { ArrowLeft, ImageIcon, Phone, Send, Video, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLoading } from "../context/LoadingContext";
-import { getChatMessages, sendChatMessage } from "../api/api";
+import { getChatMessages, sendChatMessage, sendMirrorAiMessage } from "../api/api";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "react-toastify";
+import {
+  isMirrorAi,
+  loadMirrorAiMessages,
+  saveMirrorAiMessages,
+} from "../lib/mirrorAi";
 
 const MAX_IMAGES = 4;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -31,11 +36,15 @@ const ChatContainer = ({
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const scrollEnd = useRef();
   const fileInputRef = useRef(null);
   const selectedConversationIdRef = useRef(slectedUser?._id);
   selectedConversationIdRef.current = slectedUser?._id;
+  const isMirrorAiChat = isMirrorAi(slectedUser);
+  const isGroupChat = slectedUser?.type === "group";
+  const showCallButtons = !isMirrorAiChat && !isGroupChat;
   const isBlocked = Boolean(
     slectedUser?.isBlocked || slectedUser?.blockedBy?.length,
   );
@@ -55,6 +64,11 @@ const ChatContainer = ({
 
   useEffect(() => {
     if (!slectedUser?._id) return undefined;
+    if (isMirrorAiChat) {
+      setMessages(loadMirrorAiMessages(user?._id));
+      setIsLoadingMessages(false);
+      return undefined;
+    }
 
     const conversationId = asId(slectedUser._id);
     const controller = new AbortController();
@@ -93,7 +107,7 @@ const ChatContainer = ({
 
     loadMessages();
     return () => controller.abort();
-  }, [slectedUser?._id]);
+  }, [slectedUser?._id, isMirrorAiChat, user?._id]);
 
   const onConversationUpdatedRef = useRef(onConversationUpdated);
   const selectedUserRef = useRef(slectedUser);
@@ -101,7 +115,7 @@ const ChatContainer = ({
   selectedUserRef.current = slectedUser;
 
   useEffect(() => {
-    if (!socket) return undefined;
+    if (!socket || isMirrorAiChat) return undefined;
 
     const handleNewMessage = (message) => {
       if (asId(message.conversationId) !== asId(selectedConversationIdRef.current))
@@ -132,10 +146,10 @@ const ChatContainer = ({
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
     };
-  }, [socket]);
+  }, [socket, isMirrorAiChat]);
 
   useEffect(() => {
-    if (socketReady || !slectedUser?._id) return undefined;
+    if (socketReady || !slectedUser?._id || isMirrorAiChat) return undefined;
 
     const pollMessages = async () => {
       try {
@@ -155,13 +169,58 @@ const ChatContainer = ({
           );
         });
       } catch {
-        // ignore polling errors
       }
     };
 
     const interval = setInterval(pollMessages, 3000);
     return () => clearInterval(interval);
-  }, [socketReady, slectedUser?._id]);
+  }, [socketReady, slectedUser?._id, isMirrorAiChat]);
+
+  const sendMirrorAi = async (text) => {
+    if (!user?._id || !text.trim()) return;
+    const userMessage = {
+      _id: `ai-user-${Date.now()}`,
+      role: "user",
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+      senderId: user._id,
+    };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    saveMirrorAiMessages(user._id, nextMessages);
+    setIsAiThinking(true);
+
+    try {
+      const history = nextMessages.slice(-20).map((msg) => ({
+        role: msg.role === "user" || asId(msg.senderId) === asId(user._id) ? "user" : "assistant",
+        text: msg.text,
+      }));
+      const { data } = await sendMirrorAiMessage({
+        prompt: text.trim(),
+        history: history.slice(0, -1),
+      });
+      if (!data.success) throw new Error(data.message);
+      const aiMessage = {
+        _id: `ai-bot-${Date.now()}`,
+        role: "assistant",
+        text: data.message.text,
+        createdAt: data.message.createdAt || new Date().toISOString(),
+        senderId: "mirror-ai",
+      };
+      const withReply = [...nextMessages, aiMessage];
+      setMessages(withReply);
+      saveMirrorAiMessages(user._id, withReply);
+      onConversationUpdated?.({
+        ...slectedUser,
+        lastMessage: { text: aiMessage.text, createdAt: aiMessage.createdAt },
+        updatedAt: aiMessage.createdAt,
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "MirrorAI could not respond");
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
 
   const sendMessage = async (payload) => {
     if (!slectedUser?._id || isBlocked) return;
@@ -187,6 +246,10 @@ const ChatContainer = ({
     const text = messageText.trim();
     if (!text) return;
     setMessageText("");
+    if (isMirrorAiChat) {
+      sendMirrorAi(text);
+      return;
+    }
     sendMessage({ text });
   };
 
@@ -259,34 +322,42 @@ const ChatContainer = ({
               {slectedUser.fullName}
             </span>
             <span className="flex items-center gap-1 text-xs text-[#00a884]">
-              <span
-                className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#00a884]" : "bg-slate-400"}`}
-              ></span>
-              {slectedUser.type === "group"
-                ? `${slectedUser.members?.length || 0} members`
-                : isOnline
-                  ? "Online"
-                  : "Offline"}
+              {!isMirrorAiChat && (
+                <span
+                  className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#00a884]" : "bg-slate-400"}`}
+                ></span>
+              )}
+              {isMirrorAiChat
+                ? "Always available"
+                : isGroupChat
+                  ? `${slectedUser.members?.length || 0} members`
+                  : isOnline
+                    ? "Online"
+                    : "Offline"}
             </span>
           </span>
         </button>
 
-        <button
-          type="button"
-          title="Voice call"
-          onClick={() => onStartCall?.(slectedUser, "voice")}
-          className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200"
-        >
-          <Phone className="size-5" />
-        </button>
-        <button
-          type="button"
-          title="Video call"
-          onClick={() => onStartCall?.(slectedUser, "video")}
-          className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200"
-        >
-          <Video className="size-5" />
-        </button>
+        {showCallButtons && (
+          <>
+            <button
+              type="button"
+              title="Voice call"
+              onClick={() => onStartCall?.(slectedUser, "voice")}
+              className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200"
+            >
+              <Phone className="size-5" />
+            </button>
+            <button
+              type="button"
+              title="Video call"
+              onClick={() => onStartCall?.(slectedUser, "video")}
+              className="h-10 w-10 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-200"
+            >
+              <Video className="size-5" />
+            </button>
+          </>
+        )}
         <button
           type="button"
           title="Edit profile"
@@ -316,7 +387,10 @@ const ChatContainer = ({
         )}
         {!isLoadingMessages &&
           messages.map((msg) => {
-          const isMine = asId(msg.senderId) === asId(user?._id);
+          const isMine =
+            isMirrorAiChat
+              ? msg.role === "user" || asId(msg.senderId) === asId(user?._id)
+              : asId(msg.senderId) === asId(user?._id);
           return (
             <div
               key={msg._id}
@@ -356,7 +430,7 @@ const ChatContainer = ({
                   </div>
                 )}
                 {msg.text && <p className="px-3 py-2 text-sm">{msg.text}</p>}
-                {isMine && (
+                {isMine && !isMirrorAiChat && (
                   <span
                     className={`flex justify-end px-2 pb-1 text-[11px] ${msg.seen ? "text-[#34b7f1]" : "text-slate-500"}`}
                   >
@@ -367,9 +441,25 @@ const ChatContainer = ({
             </div>
           );
         })}
-        {!isLoadingMessages && !messages.length && (
+        {isAiThinking && (
+          <div className="flex items-end gap-2 justify-start">
+            <div className="text-center text-xs">
+              <img
+                src={slectedUser?.profilePic || assets.aiAvatar}
+                alt=""
+                className="w-7 h-7 object-cover rounded-full"
+              />
+            </div>
+            <div className="max-w-72 rounded-lg mb-2 rounded-bl-none bg-white text-slate-900 shadow-sm px-4 py-3">
+              <LoadingSpinner size="sm" inline />
+            </div>
+          </div>
+        )}
+        {!isLoadingMessages && !messages.length && !isAiThinking && (
           <div className="m-auto rounded-full bg-white/80 px-4 py-2 text-sm text-slate-500 shadow-sm">
-            Say hello to start this chat.
+            {isMirrorAiChat
+              ? "Hi! I'm MirrorAI. Ask me anything."
+              : "Say hello to start this chat."}
           </div>
         )}
         <div ref={scrollEnd} className=""></div>
@@ -379,7 +469,7 @@ const ChatContainer = ({
         onSubmit={handleSubmit}
         className="absolute bottom-0 left-0 right-0 bg-[#f0f2f5]"
       >
-        {!!selectedImages.length && (
+        {!isMirrorAiChat && !!selectedImages.length && (
           <div className="px-3 pt-3 pb-2 bg-white border-t border-emerald-100">
             <div className="flex gap-2 overflow-x-auto">
               {selectedImages.map((image, index) => (
@@ -410,9 +500,15 @@ const ChatContainer = ({
               onChange={(event) => setMessageText(event.target.value)}
               className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-slate-800 placeholder:text-slate-500 bg-transparent disabled:cursor-not-allowed"
               placeholder={
-                isBlocked ? "This chat is blocked" : "Send a message"
+                isBlocked
+                  ? "This chat is blocked"
+                  : isMirrorAiChat
+                    ? "Message MirrorAI"
+                    : "Send a message"
               }
             />
+            {!isMirrorAiChat && (
+              <>
             <input
               ref={fileInputRef}
               type="file"
@@ -431,12 +527,14 @@ const ChatContainer = ({
             >
               <ImageIcon className="w-6 mr-2 text-slate-500" />
             </label>
+              </>
+            )}
           </div>
           <button
             type={selectedImages.length ? "button" : "submit"}
             onClick={selectedImages.length ? handleSendImage : undefined}
             title="Send"
-            disabled={isSending || isBlocked}
+            disabled={isSending || isBlocked || isAiThinking}
             className="h-11 w-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSending ? (
