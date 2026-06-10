@@ -3,6 +3,7 @@ import { Mic, MicOff, Phone, Video, VideoOff } from "lucide-react";
 import assets from "../assets/assets";
 import { createCallLog } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { asId } from "../lib/utils";
 import { toast } from "react-toastify";
 
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -24,8 +25,8 @@ const CallOverlay = ({ activeCall, onClose }) => {
   const receiverIds = useMemo(
     () =>
       activeCall?.conversation?.members
-        ?.map((member) => member._id || member)
-        .filter((id) => id !== user?._id) || [],
+        ?.map((member) => asId(member._id || member))
+        .filter((id) => id && id !== asId(user?._id)) || [],
     [activeCall?.conversation?.members, user?._id],
   );
 

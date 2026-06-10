@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import IncomingCallNotification from "./IncomingCallNotification";
+import { asId } from "../lib/utils";
 
 const SideBar = ({
   slectedUser,
@@ -33,9 +33,7 @@ const SideBar = ({
   statuses = [],
   callLogs = [],
   onStartCall,
-  incomingCall,
-  onAcceptCall,
-  onRejectCall,
+  currentUserId,
 }) => {
   const navigate = useNavigate();
   const [showNewChat, setShowNewChat] = useState(false);
@@ -71,15 +69,30 @@ const SideBar = ({
   const groupedStatuses = Object.values(
     statuses.reduce((acc, status) => {
       const owner = status.userId || {};
-      const key = owner._id || status.userId;
+      const key = asId(owner._id || status.userId);
       if (!key) return acc;
-      acc[key] ||= { ...owner, items: [], latest: status.createdAt };
+      acc[key] ||= { ...owner, _id: key, items: [], latest: status.createdAt };
       acc[key].items.push(status);
-      acc[key].latest = status.createdAt;
+      if (new Date(status.createdAt) > new Date(acc[key].latest)) {
+        acc[key].latest = status.createdAt;
+      }
       return acc;
     }, {}),
   ).sort((a, b) => new Date(b.latest) - new Date(a.latest));
-  const filteredStatuses = filterBySearch(groupedStatuses);
+
+  const myStatusGroup = groupedStatuses.find(
+    (group) => asId(group._id) === asId(currentUserId),
+  );
+  const otherStatuses = groupedStatuses.filter(
+    (group) => asId(group._id) !== asId(currentUserId),
+  );
+  const filteredStatuses = filterBySearch(otherStatuses);
+
+  const hasUnviewedStatus = (group) =>
+    group.items.some(
+      (status) =>
+        !status.viewers?.some((viewer) => asId(viewer._id || viewer) === asId(currentUserId)),
+    );
   const filteredCalls = filterBySearch(callLogs);
   const filteredContacts = (newChatSearch.trim()
     ? contacts.filter((contact) =>
@@ -102,7 +115,11 @@ const SideBar = ({
       )}
       {items.map((chat) => {
         const isGroup = chat.type === "group";
-        const online = !isGroup && chat.members?.some((member) => member._id !== user?._id && onlineUsers.includes(member._id));
+        const online = !isGroup && chat.members?.some(
+          (member) =>
+            asId(member._id || member) !== asId(user?._id) &&
+            onlineUsers.includes(asId(member._id || member)),
+        );
         const unread = unseenMessages[chat._id] || 0;
         return (
         <div
@@ -110,7 +127,7 @@ const SideBar = ({
             selectConversation(chat);
           }}
           key={chat._id}
-          className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${slectedUser?._id === chat._id ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
+          className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${asId(slectedUser?._id) === asId(chat._id) ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
         >
           <img
             src={chat?.profilePic || assets.avatar_icon}
@@ -143,31 +160,78 @@ const SideBar = ({
 
   const renderStatusList = () => (
     <div className="py-2">
-      {filteredStatuses.map((user) => (
-        <button
-          key={user._id}
-          type="button"
-          onClick={() => navigate(`/status`)}
-          className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
-        >
-          <span className="h-12 w-12 rounded-full border-2 border-[#25d366] p-0.5">
-            <img
-              src={user.profilePic || assets.avatar_icon}
-              alt=""
-              className="h-full w-full rounded-full object-cover"
-            />
+      <button
+        type="button"
+        onClick={() => navigate("/status")}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
+      >
+        <span className="relative h-14 w-14 shrink-0">
+          <img
+            src={user?.image || assets.avatar_icon}
+            alt=""
+            className="h-14 w-14 rounded-full object-cover"
+          />
+          <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-[#00a884] text-white grid place-items-center border-2 border-white">
+            <Plus className="size-3.5" />
           </span>
-          <span className="min-w-0">
-            <span className="block font-medium truncate">{user.fullName}</span>
-            <span className="block text-xs text-slate-500 truncate">
-              {user.items?.at(-1)?.text || (user.items?.at(-1)?.image ? "Photo" : "Status update")}
-            </span>
-            <span className="block text-xs text-[#00a884]">
-              {formatShortTime(user.latest)}
-            </span>
+        </span>
+        <span className="min-w-0">
+          <span className="block font-semibold">My status</span>
+          <span className="block text-sm text-slate-500">
+            {myStatusGroup
+              ? `${myStatusGroup.items.length} update${myStatusGroup.items.length > 1 ? "s" : ""}`
+              : "Click to add status update"}
           </span>
-        </button>
-      ))}
+        </span>
+      </button>
+
+      {!!filteredStatuses.length && (
+        <p className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          Recent updates
+        </p>
+      )}
+
+      {filteredStatuses.map((statusUser) => {
+        const latest = statusUser.items?.at(-1);
+        const unviewed = hasUnviewedStatus(statusUser);
+        return (
+          <button
+            key={statusUser._id}
+            type="button"
+            onClick={() =>
+              navigate("/status", { state: { userId: statusUser._id } })
+            }
+            className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
+          >
+            <span
+              className={`h-14 w-14 rounded-full p-0.5 ${unviewed ? "border-2 border-[#25d366]" : "border-2 border-slate-300"}`}
+            >
+              <img
+                src={statusUser.image || assets.avatar_icon}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+              />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-medium truncate">
+                {statusUser.name || "Contact"}
+              </span>
+              <span className="block text-sm text-slate-500 truncate">
+                {latest?.text || (latest?.image ? "Photo" : "Status update")}
+              </span>
+              <span className="block text-xs text-[#00a884]">
+                {formatShortTime(statusUser.latest)}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+
+      {!myStatusGroup && !filteredStatuses.length && (
+        <p className="px-4 py-8 text-center text-sm text-slate-500">
+          No status updates yet. Tap My status to add one.
+        </p>
+      )}
     </div>
   );
 
@@ -188,7 +252,23 @@ const SideBar = ({
           <button
             key={call._id}
             type="button"
-            onClick={() => call.conversationId && onStartCall?.(call.conversationId, call.type || "voice")}
+            onClick={() => {
+              const conversation = call.conversationId;
+              if (conversation?._id) {
+                onStartCall?.(
+                  {
+                    _id: conversation._id,
+                    fullName: conversation.name || peer?.name,
+                    profilePic: conversation.image || peer?.image,
+                    members: conversation.members || [
+                      call.callerId,
+                      ...(call.receiverIds || []),
+                    ],
+                  },
+                  call.type || "voice",
+                );
+              }
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
           >
             <img
@@ -280,11 +360,6 @@ const SideBar = ({
           ))}
         </div>
 
-        <IncomingCallNotification
-          call={incomingCall}
-          onAccept={onAcceptCall}
-          onReject={onRejectCall}
-        />
       </div>
 
 

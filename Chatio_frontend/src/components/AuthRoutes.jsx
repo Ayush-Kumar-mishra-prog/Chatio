@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { CallProvider } from "../context/CallContext";
 
 const LoadingScreen = () => (
   <div className="min-h-screen grid place-items-center bg-[#e8f3ef] text-[#075e54] font-semibold">
@@ -11,7 +12,13 @@ export const ProtectedRoute = () => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  return isAuthenticated ? <Outlet /> : <Navigate to="/" replace />;
+  return isAuthenticated ? (
+    <CallProvider>
+      <Outlet />
+    </CallProvider>
+  ) : (
+    <Navigate to="/" replace />
+  );
 };
 
 export const PublicOnlyRoute = () => {

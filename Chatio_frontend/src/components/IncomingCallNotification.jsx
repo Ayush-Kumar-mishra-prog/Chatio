@@ -1,25 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { Phone, Video, X, Volume2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import assets from "../assets/assets";
 
 const IncomingCallNotification = ({ call, onAccept, onReject }) => {
-  const [isVisible, setIsVisible] = useState(true);
   const audioRef = useRef(null);
 
   useEffect(() => {
     if (!call) {
-      setIsVisible(false);
       audioRef.current?.pause();
-      return;
+      return undefined;
     }
 
-    setIsVisible(true);
-    audioRef.current?.play().catch(() => {
-      console.log("Audio autoplay prevented by browser");
-    });
+    audioRef.current?.play().catch(() => {});
+    return () => audioRef.current?.pause();
   }, [call]);
 
-  if (!call || !isVisible) return null;
+  if (!call) return null;
 
   const callerName =
     call.caller?.name ||
@@ -33,22 +29,7 @@ const IncomingCallNotification = ({ call, onAccept, onReject }) => {
     call.conversation?.profilePic ||
     call.conversation?.image ||
     assets.avatar_icon;
-  const CallTypeIcon = call.type === "video" ? Video : Phone;
-
-  const stopRinging = () => {
-    setIsVisible(false);
-    audioRef.current?.pause();
-  };
-
-  const handleAccept = () => {
-    stopRinging();
-    onAccept?.();
-  };
-
-  const handleReject = () => {
-    stopRinging();
-    onReject?.();
-  };
+  const isVideo = call.type === "video";
 
   return (
     <>
@@ -58,52 +39,49 @@ const IncomingCallNotification = ({ call, onAccept, onReject }) => {
         loop
       />
 
-      <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="relative h-12 w-12 shrink-0">
+      <div className="fixed inset-0 z-[70] bg-[#111b21]/95 flex flex-col items-center justify-between p-8 text-white">
+        <div className="pt-12 text-center">
+          <p className="text-sm text-white/60 uppercase tracking-widest mb-8">
+            Incoming {isVideo ? "video" : "voice"} call
+          </p>
+          <div className="relative mx-auto mb-6">
+            <span className="absolute inset-0 rounded-full bg-[#00a884]/30 animate-ping" />
+            <span className="absolute -inset-3 rounded-full border-2 border-[#00a884]/40 animate-pulse" />
             <img
               src={callerImage}
               alt={callerName}
-              className="h-12 w-12 rounded-full object-cover"
+              className="relative h-36 w-36 rounded-full object-cover border-4 border-white/20"
             />
-            <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-[#00a884] text-white ring-2 ring-emerald-50">
-              <CallTypeIcon className="size-3.5" />
-            </span>
-          </span>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {callerName}
-            </p>
-            <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#075e54]">
-              <Volume2 className="size-3.5 animate-pulse" />
-              Incoming {call.type === "video" ? "video" : "voice"} call
-            </p>
           </div>
+          <h2 className="text-3xl font-semibold">{callerName}</h2>
+          <p className="mt-2 text-white/60 flex items-center justify-center gap-2">
+            {isVideo ? <Video className="size-5" /> : <Phone className="size-5" />}
+            Chatio {isVideo ? "video" : "voice"} call
+          </p>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-16 pb-16">
           <button
             type="button"
-            onClick={handleReject}
-            className="h-10 rounded-md bg-red-500 text-sm font-semibold text-white transition hover:bg-red-600 active:bg-red-700"
-            title="Reject call"
+            onClick={onReject}
+            className="flex flex-col items-center gap-3"
+            title="Decline"
           >
-            <span className="inline-flex items-center justify-center gap-2">
-              <X className="size-4" />
-              Reject
+            <span className="h-16 w-16 rounded-full bg-red-500 grid place-items-center hover:bg-red-600 transition shadow-lg">
+              <PhoneOff className="size-7" />
             </span>
+            <span className="text-sm text-white/70">Decline</span>
           </button>
           <button
             type="button"
-            onClick={handleAccept}
-            className="h-10 rounded-md bg-[#00a884] text-sm font-semibold text-white transition hover:bg-[#008f72] active:bg-[#00785f]"
-            title="Accept call"
+            onClick={onAccept}
+            className="flex flex-col items-center gap-3"
+            title="Accept"
           >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Phone className="size-4" />
-              Accept
+            <span className="h-16 w-16 rounded-full bg-[#00a884] grid place-items-center hover:bg-[#008f72] transition shadow-lg">
+              <Phone className="size-7" />
             </span>
+            <span className="text-sm text-white/70">Accept</span>
           </button>
         </div>
       </div>

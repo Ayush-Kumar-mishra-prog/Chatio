@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SideBar from "../components/SideBar";
 import ChatContainer from "../components/ChatContainer";
 import RightSidebar from "../components/RightSidebar";
 import ProfileEditorPanel from "../components/ProfileEditorPanel";
 import CreateGroupPanel from "../components/CreateGroupPanel";
-import CallOverlay from "../components/CallOverlay";
 import {
   addGroupMembers,
   createDirectChat,
@@ -18,7 +17,9 @@ import {
   toggleFavoriteChat,
 } from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { useCall } from "../context/CallContext";
 import { useLoading } from "../context/LoadingContext";
+import { asId } from "../lib/utils";
 import { toast } from "react-toastify";
 
 const ChatPage = () => {
@@ -30,11 +31,12 @@ const ChatPage = () => {
   const [unseenMessages, setUnseenMessages] = useState({});
   const [callLogs, setCallLogs] = useState([]);
   const [statuses, setStatuses] = useState([]);
-  const [activeCall, setActiveCall] = useState(null);
-  const [incomingCall, setIncomingCall] = useState(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const { socket, user } = useAuth();
+  const { startCall } = useCall();
   const { setLoading, isLoading } = useLoading();
+  const selectedUserIdRef = useRef(slectedUser?._id);
+  selectedUserIdRef.current = slectedUser?._id;
 
   const normalizeConversation = (conversation) => ({
     ...conversation,
@@ -46,10 +48,14 @@ const ChatPage = () => {
     if (!conversation?._id) return;
     const normalized = normalizeConversation(conversation);
     setConversations((current) => {
-      const exists = current.some((item) => item._id === normalized._id);
+      const exists = current.some(
+        (item) => asId(item._id) === asId(normalized._id),
+      );
       const next = exists
         ? current.map((item) =>
-            item._id === normalized._id ? { ...item, ...normalized } : item,
+            asId(item._id) === asId(normalized._id)
+              ? { ...item, ...normalized }
+              : item,
           )
         : [normalized, ...current];
       return next.sort(
@@ -59,7 +65,9 @@ const ChatPage = () => {
       );
     });
     setSlectedUser((current) =>
-      current?._id === normalized._id ? { ...current, ...normalized } : current,
+      asId(current?._id) === asId(normalized._id)
+        ? { ...current, ...normalized }
+        : current,
     );
   }, []);
 
@@ -97,21 +105,22 @@ const ChatPage = () => {
 
     const handleConversationDeleted = (conversationId) => {
       console.log("Conversation deleted:", conversationId);
+      const id = asId(conversationId);
       setConversations((current) =>
-        current.filter((item) => item._id !== conversationId),
+        current.filter((item) => asId(item._id) !== id),
       );
       setSlectedUser((current) =>
-        current?._id === conversationId ? null : current,
+        asId(current?._id) === id ? null : current,
       );
     };
 
     const handleNewMessage = (message) => {
-      console.log("New message received in ChatPage:", message);
       if (!message?.conversationId) return;
+      const conversationId = asId(message.conversationId);
       setConversations((current) =>
         current
           .map((conversation) =>
-            conversation._id === message.conversationId
+            asId(conversation._id) === conversationId
               ? {
                   ...conversation,
                   lastMessage: message,
@@ -127,60 +136,62 @@ const ChatPage = () => {
       );
       setUnseenMessages((current) => {
         if (
-          slectedUser?._id === message.conversationId ||
-          message.senderId === user?._id
+          asId(selectedUserIdRef.current) === conversationId ||
+          asId(message.senderId) === asId(user?._id)
         )
           return current;
         return {
           ...current,
-          [message.conversationId]: (current[message.conversationId] || 0) + 1,
+          [conversationId]: (current[conversationId] || 0) + 1,
         };
       });
     };
 
-    const handleMessagesSeen = ({
-      conversationId,
-      messageIds = [],
-      seenBy,
-    }) => {
-      console.log("Messages seen:", conversationId, messageIds, seenBy);
+    const handleMessagesSeen = ({ conversationId, messageIds = [] }) => {
+      const id = asId(conversationId);
       setUnseenMessages((current) => {
-        if (current[conversationId] && current[conversationId] > 0) {
+        if (current[id] && current[id] > 0) {
           return {
             ...current,
-            [conversationId]: Math.max(
-              0,
-              current[conversationId] - messageIds.length,
-            ),
+            [id]: Math.max(0, current[id] - messageIds.length),
           };
         }
         return current;
       });
     };
 
-    const handleIncomingCall = (payload) => {
-      console.log("Incoming call received:", payload);
-      setIncomingCall({
-        ...payload,
-        incoming: true,
-        conversation: normalizeConversation(payload.conversation),
+    const handleStatusNew = (status) => {
+      setStatuses((current) => {
+        const exists = current.some((item) => asId(item._id) === asId(status._id));
+        if (exists) return current;
+        return [...current, status];
       });
+    };
+
+    const handleStatusViewed = (status) => {
+      setStatuses((current) =>
+        current.map((item) =>
+          asId(item._id) === asId(status._id) ? status : item,
+        ),
+      );
     };
 
     socket.on("conversationUpdated", handleConversationUpdated);
     socket.on("conversationDeleted", handleConversationDeleted);
     socket.on("newMessage", handleNewMessage);
     socket.on("messagesSeen", handleMessagesSeen);
-    socket.on("call:incoming", handleIncomingCall);
+    socket.on("status:new", handleStatusNew);
+    socket.on("status:viewed", handleStatusViewed);
 
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("conversationDeleted", handleConversationDeleted);
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
-      socket.off("call:incoming", handleIncomingCall);
+      socket.off("status:new", handleStatusNew);
+      socket.off("status:viewed", handleStatusViewed);
     };
-  }, [socket, upsertConversation, slectedUser?._id, user?._id]);
+  }, [socket, upsertConversation, user?._id]);
 
   const handleSelectUser = (user) => {
     setSlectedUser(user);
@@ -286,32 +297,6 @@ const ChatPage = () => {
     }
   };
 
-  const handleStartCall = (conversation, type) => {
-    setActiveCall({
-      callId: `${Date.now()}-${conversation._id}`,
-      conversation,
-      type,
-      incoming: false,
-    });
-  };
-
-  const handleAcceptIncomingCall = () => {
-    if (incomingCall) {
-      setActiveCall({ ...incomingCall, autoAccept: true });
-      setIncomingCall(null);
-    }
-  };
-
-  const handleRejectIncomingCall = () => {
-    if (incomingCall && socket) {
-      socket.emit("call:end", {
-        receiverIds: [incomingCall.from],
-        callId: incomingCall.callId,
-      });
-    }
-    setIncomingCall(null);
-  };
-
   const handleBackToChats = () => {
     setSlectedUser(null);
     setShowProfile(false);
@@ -343,10 +328,8 @@ const ChatPage = () => {
             onCreateGroup={() => setSidebarPanel("group")}
             statuses={statuses}
             callLogs={callLogs}
-            onStartCall={handleStartCall}
-            incomingCall={incomingCall}
-            onAcceptCall={handleAcceptIncomingCall}
-            onRejectCall={handleRejectIncomingCall}
+            onStartCall={startCall}
+            currentUserId={user?._id}
           />
         )}
         <ChatContainer
@@ -356,7 +339,7 @@ const ChatPage = () => {
           onShowProfile={() => setShowProfile(true)}
           onEditProfile={() => setSidebarPanel("profile")}
           onConversationUpdated={upsertConversation}
-          onStartCall={handleStartCall}
+          onStartCall={startCall}
         />
         <RightSidebar
           slectedUser={slectedUser}
@@ -368,7 +351,7 @@ const ChatPage = () => {
           onRemoveMember={handleRemoveMember}
           onAddMembers={handleAddMembers}
           contacts={contacts}
-          onStartCall={handleStartCall}
+          onStartCall={startCall}
           isLoadingFavorite={isLoading(`favorite_${slectedUser?._id}`)}
           isLoadingBlock={isLoading(`block_${slectedUser?._id}`)}
           isLoadingDelete={isLoading(`delete_${slectedUser?._id}`)}
@@ -376,15 +359,6 @@ const ChatPage = () => {
             isLoading(`remove_${slectedUser?._id}_${memberId}`)
           }
           isLoadingAddMembers={isLoading(`add_members_${slectedUser?._id}`)}
-        />
-        <CallOverlay
-          activeCall={activeCall}
-          onClose={() => {
-            setActiveCall(null);
-            getCallLogs()
-              .then((result) => setCallLogs(result.data.calls || []))
-              .catch(() => {});
-          }}
         />
       </div>
     </div>

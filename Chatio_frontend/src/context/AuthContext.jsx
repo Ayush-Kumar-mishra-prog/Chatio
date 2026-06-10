@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     if (!user?._id) return undefined;
 
     const nextSocket = io(BACKEND, {
-      query: { userId: user._id },
+      query: { userId: user._id?.toString?.() ?? user._id },
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,

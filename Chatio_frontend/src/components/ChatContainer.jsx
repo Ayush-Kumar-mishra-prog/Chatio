@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import assets from "../assets/assets";
-import { formatMessageTime } from "../lib/utils";
+import { asId, formatMessageTime } from "../lib/utils";
 import { ArrowLeft, ImageIcon, Phone, Send, Video, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLoading } from "../context/LoadingContext";
@@ -33,13 +33,17 @@ const ChatContainer = ({
   const [selectedImages, setSelectedImages] = useState([]);
   const scrollEnd = useRef();
   const fileInputRef = useRef(null);
+  const selectedConversationIdRef = useRef(slectedUser?._id);
+  selectedConversationIdRef.current = slectedUser?._id;
   const isBlocked = Boolean(
     slectedUser?.isBlocked || slectedUser?.blockedBy?.length,
   );
   const isOnline =
     slectedUser?.type === "group" ||
     slectedUser?.members?.some(
-      (member) => member._id !== user?._id && onlineUsers.includes(member._id),
+      (member) =>
+        asId(member._id || member) !== asId(user?._id) &&
+        onlineUsers.includes(asId(member._id || member)),
     );
 
   useEffect(() => {
@@ -62,11 +66,11 @@ const ChatContainer = ({
   }, [slectedUser?._id]);
 
   useEffect(() => {
-    if (!socket || !slectedUser?._id) return undefined;
+    if (!socket) return undefined;
 
     const handleNewMessage = (message) => {
-      console.log("Received new message in ChatContainer:", message);
-      if (message.conversationId !== slectedUser._id) return;
+      if (asId(message.conversationId) !== asId(selectedConversationIdRef.current))
+        return;
       setMessages((current) => appendUniqueMessage(current, message));
       onConversationUpdated?.({
         ...slectedUser,
@@ -76,12 +80,7 @@ const ChatContainer = ({
     };
 
     const handleMessagesSeen = ({ conversationId, messageIds = [] }) => {
-      console.log(
-        "Messages marked as seen in ChatContainer:",
-        conversationId,
-        messageIds,
-      );
-      if (conversationId !== slectedUser._id) return;
+      if (asId(conversationId) !== asId(selectedConversationIdRef.current)) return;
       setMessages((current) =>
         current.map((message) =>
           messageIds.includes(message._id)
@@ -98,7 +97,7 @@ const ChatContainer = ({
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
     };
-  }, [socket, slectedUser?._id, slectedUser, onConversationUpdated]);
+  }, [socket, onConversationUpdated, slectedUser]);
 
   const sendMessage = async (payload) => {
     if (!slectedUser?._id || isBlocked) return;
@@ -246,7 +245,7 @@ const ChatContainer = ({
 
       <div className="flex flex-col h-[calc(100%-128px)] overflow-y-scroll p-3 md:p-5 pb-6 bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.6),rgba(217,253,211,0.35))]">
         {messages.map((msg) => {
-          const isMine = msg.senderId === user?._id;
+          const isMine = asId(msg.senderId) === asId(user?._id);
           return (
             <div
               key={msg._id}

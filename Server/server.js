@@ -17,8 +17,10 @@ export const io = new Server(server, {
 
 export const userSocketMap = {};
 
+const asId = (value) => value?.toString?.() ?? "";
+
 io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+  const userId = asId(socket.handshake.query.userId);
   console.log("user connected", userId, "socket ID:", socket.id);
   if (userId) userSocketMap[userId] = socket.id;
 
@@ -27,39 +29,38 @@ io.on("connection", (socket) => {
   socket.on("call:invite", ({ receiverIds = [], ...payload }) => {
     console.log("call:invite from", userId, "to", receiverIds);
     receiverIds.forEach((receiverId) => {
-      const socketId = userSocketMap[receiverId];
+      const id = asId(receiverId);
+      const socketId = userSocketMap[id];
       if (socketId) {
-        console.log(
-          "Emitting call:incoming to",
-          receiverId,
-          "via socket",
-          socketId,
-        );
+        console.log("Emitting call:incoming to", id, "via socket", socketId);
         io.to(socketId).emit("call:incoming", { ...payload, from: userId });
       } else {
-        console.log("Receiver", receiverId, "not found in userSocketMap");
+        console.log("Receiver", id, "not found in userSocketMap");
       }
     });
   });
   socket.on("call:answer", ({ to, ...payload }) => {
-    console.log("call:answer from", userId, "to", to);
-    const socketId = userSocketMap[to];
+    const targetId = asId(to);
+    console.log("call:answer from", userId, "to", targetId);
+    const socketId = userSocketMap[targetId];
     if (socketId) {
-      console.log("Emitting call:answer to", to, "via socket", socketId);
+      console.log("Emitting call:answer to", targetId, "via socket", socketId);
       io.to(socketId).emit("call:answer", { ...payload, from: userId });
     }
   });
   socket.on("call:ice", ({ to, ...payload }) => {
-    const socketId = userSocketMap[to];
+    const targetId = asId(to);
+    const socketId = userSocketMap[targetId];
     if (socketId)
       io.to(socketId).emit("call:ice", { ...payload, from: userId });
   });
   socket.on("call:end", ({ receiverIds = [], ...payload }) => {
     console.log("call:end from", userId, "to", receiverIds);
     receiverIds.forEach((receiverId) => {
-      const socketId = userSocketMap[receiverId];
+      const id = asId(receiverId);
+      const socketId = userSocketMap[id];
       if (socketId) {
-        console.log("Emitting call:end to", receiverId, "via socket", socketId);
+        console.log("Emitting call:end to", id, "via socket", socketId);
         io.to(socketId).emit("call:end", { ...payload, from: userId });
       }
     });
