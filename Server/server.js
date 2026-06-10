@@ -7,6 +7,7 @@ import connectDB from "./configs/db.js";
 import messageRouter from "./routes/messageRoutes.js";
 import callRouter from "./routes/callRoutes.js";
 import statusRouter from "./routes/statusRoutes.js";
+import presenceRouter from "./routes/presenceRoutes.js";
 import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
@@ -78,12 +79,11 @@ app.use("/auth", g_authRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/calls", callRouter);
 app.use("/api/statuses", statusRouter);
+app.use("/api/presence", presenceRouter);
 
-if (process.env.NODE_ENV !== "production") {
-  const PORT = process.env.PORT || 8000;
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
+const PORT = process.env.PORT || 8000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
 export default server;

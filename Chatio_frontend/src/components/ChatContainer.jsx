@@ -25,7 +25,7 @@ const ChatContainer = ({
   onConversationUpdated,
   onStartCall,
 }) => {
-  const { user, socket, onlineUsers } = useAuth();
+  const { user, socket, socketReady, onlineUsers } = useAuth();
   const { setLoading, isLoading } = useLoading();
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -133,6 +133,35 @@ const ChatContainer = ({
       socket.off("messagesSeen", handleMessagesSeen);
     };
   }, [socket]);
+
+  useEffect(() => {
+    if (socketReady || !slectedUser?._id) return undefined;
+
+    const pollMessages = async () => {
+      try {
+        const { data } = await getChatMessages(slectedUser._id);
+        const fetched = data.messages || [];
+        setMessages((current) => {
+          const merged = [...fetched];
+          current.forEach((message) => {
+            if (
+              !merged.some((item) => asId(item._id) === asId(message._id))
+            ) {
+              merged.push(message);
+            }
+          });
+          return merged.sort(
+            (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+          );
+        });
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    const interval = setInterval(pollMessages, 3000);
+    return () => clearInterval(interval);
+  }, [socketReady, slectedUser?._id]);
 
   const sendMessage = async (payload) => {
     if (!slectedUser?._id || isBlocked) return;

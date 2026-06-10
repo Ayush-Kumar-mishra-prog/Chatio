@@ -1,6 +1,11 @@
 import { useEffect, useRef } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
-import { createCallLog, getZegoToken } from "../api/api";
+import {
+  createCallLog,
+  getZegoToken,
+  respondToCallInvite,
+  sendCallInvite,
+} from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { asId } from "../lib/utils";
 import { toast } from "react-toastify";
@@ -32,21 +37,27 @@ const ZegoCallOverlay = ({ activeCall, onClose }) => {
         const zp = ZegoUIKitPrebuilt.create(kitToken);
         instanceRef.current = zp;
 
-        if (!activeCall.incoming && !invitedRef.current && socket) {
+        if (!activeCall.incoming && !invitedRef.current) {
           invitedRef.current = true;
           const receiverIds =
             activeCall.conversation?.members
               ?.map((member) => asId(member._id || member))
               .filter((id) => id && id !== asId(user._id)) || [];
 
-          socket.emit("call:invite", {
+          const invitePayload = {
             callId: activeCall.callId,
             roomID: activeCall.roomID,
             conversation: activeCall.conversation,
             receiverIds,
             type: activeCall.type,
             caller: user,
-          });
+          };
+
+          await sendCallInvite(invitePayload).catch(() => {});
+
+          if (socket) {
+            socket.emit("call:invite", invitePayload);
+          }
 
           createCallLog({
             conversationId: activeCall.conversation._id,
@@ -56,6 +67,7 @@ const ZegoCallOverlay = ({ activeCall, onClose }) => {
         }
 
         if (activeCall.incoming) {
+          respondToCallInvite(activeCall.callId, "answer").catch(() => {});
           createCallLog({
             conversationId: activeCall.conversation._id,
             type: activeCall.type,
@@ -74,6 +86,7 @@ const ZegoCallOverlay = ({ activeCall, onClose }) => {
           turnOnMicrophoneWhenJoining: true,
           showScreenSharingButton: false,
           onLeaveRoom: () => {
+            respondToCallInvite(activeCall.callId, "end").catch(() => {});
             if (socket && activeCall) {
               const targets = activeCall.incoming
                 ? [activeCall.from]

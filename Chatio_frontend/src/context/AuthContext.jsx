@@ -8,7 +8,14 @@ import {
   useState,
 } from "react";
 import { io } from "socket.io-client";
-import { BACKEND, getMe, setAuthToken } from "../api/api";
+import {
+  BACKEND,
+  getMe,
+  getOnlineUsersApi,
+  sendPresenceHeartbeat,
+  setAuthToken,
+} from "../api/api";
+import { asId } from "../lib/utils";
 
 const AuthContext = createContext(null);
 
@@ -26,6 +33,7 @@ export const AuthProvider = ({ children }) => {
   const [socketReady, setSocketReady] = useState(false);
   const [loading, setLoading] = useState(Boolean(token));
   const socketRef = useRef(null);
+  const trackedUserIdsRef = useRef([]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
@@ -63,21 +71,26 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, [token, logout]);
 
+  const socketDisabled =
+    import.meta.env.VITE_DISABLE_SOCKET === "true" ||
+    BACKEND.includes("vercel.app");
+
   useEffect(() => {
-    if (!user?._id) {
+    if (!user?._id || socketDisabled) {
       setSocket(null);
       setSocketReady(false);
       return undefined;
     }
 
-    const userId = user._id?.toString?.() ?? String(user._id);
+    const userId = asId(user._id);
     const nextSocket = io(BACKEND, {
       query: { userId },
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 10,
+      timeout: 20000,
     });
 
     const handleConnect = () => {
@@ -92,11 +105,10 @@ export const AuthProvider = ({ children }) => {
 
     nextSocket.on("connect", handleConnect);
     nextSocket.on("disconnect", handleDisconnect);
-    nextSocket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-      setSocketReady(false);
+    nextSocket.on("connect_error", () => setSocketReady(false));
+    nextSocket.on("getOnlineUsers", (ids) => {
+      setOnlineUsers(ids.map(asId));
     });
-    nextSocket.on("getOnlineUsers", setOnlineUsers);
 
     socketRef.current = nextSocket;
     setSocket(nextSocket);
@@ -105,14 +117,38 @@ export const AuthProvider = ({ children }) => {
     return () => {
       nextSocket.off("connect", handleConnect);
       nextSocket.off("disconnect", handleDisconnect);
-      nextSocket.off("getOnlineUsers", setOnlineUsers);
+      nextSocket.off("getOnlineUsers");
       nextSocket.disconnect();
       socketRef.current = null;
       setSocket(null);
       setSocketReady(false);
-      setOnlineUsers([]);
     };
-  }, [user?._id]);
+  }, [user?._id, socketDisabled]);
+
+  useEffect(() => {
+    if (!user?._id || !token) return undefined;
+
+    const refreshPresence = async () => {
+      try {
+        await sendPresenceHeartbeat();
+        const ids = trackedUserIdsRef.current;
+        const { data } = await getOnlineUsersApi(ids);
+        if (data.onlineUserIds) {
+          setOnlineUsers(data.onlineUserIds.map(asId));
+        }
+      } catch {
+        // HTTP presence works even when socket fails (e.g. on Vercel)
+      }
+    };
+
+    refreshPresence();
+    const interval = setInterval(refreshPresence, 15000);
+    return () => clearInterval(interval);
+  }, [user?._id, token]);
+
+  const trackOnlineUsers = useCallback((userIds = []) => {
+    trackedUserIdsRef.current = [...new Set(userIds.map(asId).filter(Boolean))];
+  }, []);
 
   const saveSession = (nextToken, nextUser) => {
     localStorage.setItem(TOKEN_KEY, nextToken);
@@ -139,8 +175,9 @@ export const AuthProvider = ({ children }) => {
       onlineUsers,
       socket,
       socketReady,
+      trackOnlineUsers,
     }),
-    [user, token, loading, onlineUsers, socket, socketReady, logout],
+    [user, token, loading, onlineUsers, socket, socketReady, logout, trackOnlineUsers],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

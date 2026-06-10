@@ -57,6 +57,10 @@ const gSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true },
 );

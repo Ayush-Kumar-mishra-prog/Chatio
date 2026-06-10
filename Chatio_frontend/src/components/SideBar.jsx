@@ -65,7 +65,9 @@ const SideBar = ({
     conversations.filter((item) => {
       if (item.type !== "group") return false;
       // Only show groups where user is a member
-      return item.members?.some((member) => (member._id || member) === user?._id);
+      return item.members?.some(
+        (member) => asId(member._id || member) === asId(user?._id),
+      );
     })
   );
   const filteredFavorites = filterBySearch(conversations.filter((item) => item.isFavorite));
@@ -503,6 +505,7 @@ const SideBar = ({
           group={viewingStatusGroup}
           currentUserId={currentUserId}
           onClose={() => setViewingStatusGroup(null)}
+          onFinish={() => setActiveTab("Chats")}
           onStatusUpdated={onStatusUpdated}
         />
       )}

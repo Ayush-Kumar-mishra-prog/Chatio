@@ -4,11 +4,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import ZegoCallOverlay from "../components/ZegoCallOverlay";
 import IncomingCallNotification from "../components/IncomingCallNotification";
+import {
+  getPendingCallInvites,
+  respondToCallInvite,
+} from "../api/api";
 import { useAuth } from "./AuthContext";
 import { asId } from "../lib/utils";
 
@@ -21,21 +26,28 @@ const normalizeConversation = (conversation) => ({
 });
 
 export const CallProvider = ({ children }) => {
-  const { socket } = useAuth();
+  const { socket, user } = useAuth();
   const navigate = useNavigate();
   const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
+  const incomingCallRef = useRef(null);
+  const activeCallRef = useRef(null);
+  incomingCallRef.current = incomingCall;
+  activeCallRef.current = activeCall;
+
+  const applyIncomingCall = useCallback((payload) => {
+    if (!payload?.callId) return;
+    setIncomingCall({
+      ...payload,
+      incoming: true,
+      conversation: normalizeConversation(payload.conversation),
+    });
+  }, []);
 
   useEffect(() => {
     if (!socket) return undefined;
 
-    const handleIncomingCall = (payload) => {
-      setIncomingCall({
-        ...payload,
-        incoming: true,
-        conversation: normalizeConversation(payload.conversation),
-      });
-    };
+    const handleIncomingCall = (payload) => applyIncomingCall(payload);
 
     const handleCallEnd = ({ callId } = {}) => {
       setIncomingCall((current) =>
@@ -53,7 +65,27 @@ export const CallProvider = ({ children }) => {
       socket.off("call:incoming", handleIncomingCall);
       socket.off("call:end", handleCallEnd);
     };
-  }, [socket]);
+  }, [socket, applyIncomingCall]);
+
+  useEffect(() => {
+    if (!user?._id) return undefined;
+
+    const pollPendingCalls = async () => {
+      if (incomingCallRef.current || activeCallRef.current) return;
+      try {
+        const { data } = await getPendingCallInvites();
+        if (data.invite) {
+          applyIncomingCall(data.invite);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    pollPendingCalls();
+    const interval = setInterval(pollPendingCalls, 2000);
+    return () => clearInterval(interval);
+  }, [user?._id, applyIncomingCall]);
 
   const startCall = useCallback((conversation, type) => {
     const normalized = normalizeConversation(conversation);
@@ -70,13 +102,16 @@ export const CallProvider = ({ children }) => {
 
   const acceptIncomingCall = useCallback(() => {
     if (!incomingCall) return;
+    respondToCallInvite(incomingCall.callId, "answer").catch(() => {});
     setActiveCall({ ...incomingCall, incoming: true, autoAccept: true });
     setIncomingCall(null);
     navigate("/chat");
   }, [incomingCall, navigate]);
 
   const rejectIncomingCall = useCallback(() => {
-    if (incomingCall && socket) {
+    if (!incomingCall) return;
+    respondToCallInvite(incomingCall.callId, "decline").catch(() => {});
+    if (socket) {
       socket.emit("call:end", {
         receiverIds: [incomingCall.from],
         callId: incomingCall.callId,

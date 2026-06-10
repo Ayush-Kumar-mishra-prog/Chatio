@@ -18,6 +18,11 @@ export const callApi = axios.create({
   timeout: 10000,
 });
 
+export const presenceApi = axios.create({
+  baseURL: `${BACKEND}/api/presence`,
+  timeout: 10000,
+});
+
 export const statusApi = axios.create({
   baseURL: `${BACKEND}/api/statuses`,
   timeout: 10000,
@@ -58,7 +63,7 @@ messageApi.interceptors.response.use(
   },
 );
 
-[callApi, statusApi].forEach((client) => {
+[callApi, statusApi, presenceApi].forEach((client) => {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -82,11 +87,13 @@ export const setAuthToken = (token) => {
     messageApi.defaults.headers.common.Authorization = `Bearer ${token}`;
     callApi.defaults.headers.common.Authorization = `Bearer ${token}`;
     statusApi.defaults.headers.common.Authorization = `Bearer ${token}`;
+    presenceApi.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     delete api.defaults.headers.common.Authorization;
     delete messageApi.defaults.headers.common.Authorization;
     delete callApi.defaults.headers.common.Authorization;
     delete statusApi.defaults.headers.common.Authorization;
+    delete presenceApi.defaults.headers.common.Authorization;
   }
 };
 
@@ -122,7 +129,15 @@ export const deleteGroupChat = (conversationId) =>
 export const getCallLogs = () => callApi.get("/");
 export const getZegoToken = (roomID) =>
   callApi.get("/zego-token", { params: { roomID } });
+export const sendCallInvite = (payload) => callApi.post("/invite", payload);
+export const getPendingCallInvites = () => callApi.get("/pending");
+export const respondToCallInvite = (callId, action) =>
+  callApi.put(`/invite/${callId}/respond`, { action });
 export const createCallLog = (payload) => callApi.post("/", payload);
+
+export const sendPresenceHeartbeat = () => presenceApi.post("/heartbeat");
+export const getOnlineUsersApi = (ids = []) =>
+  presenceApi.get("/online", { params: { ids: ids.join(",") } });
 
 export const getStatuses = () => statusApi.get("/");
 export const createStatus = (payload) => statusApi.post("/", payload);

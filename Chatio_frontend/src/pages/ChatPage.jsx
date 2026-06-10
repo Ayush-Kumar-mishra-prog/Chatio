@@ -32,7 +32,7 @@ const ChatPage = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
-  const { socket, user } = useAuth();
+  const { socket, socketReady, user, trackOnlineUsers } = useAuth();
   const { startCall } = useCall();
   const { setLoading, isLoading } = useLoading();
   const selectedUserIdRef = useRef(slectedUser?._id);
@@ -94,6 +94,21 @@ const ChatPage = () => {
   useEffect(() => {
     queueMicrotask(loadSidebar);
   }, [loadSidebar]);
+
+  useEffect(() => {
+    const memberIds = conversations.flatMap((conversation) =>
+      (conversation.members || []).map((member) => asId(member._id || member)),
+    );
+    trackOnlineUsers(memberIds);
+  }, [conversations, trackOnlineUsers]);
+
+  useEffect(() => {
+    if (socketReady) return undefined;
+    const interval = setInterval(() => {
+      loadSidebar();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [socketReady, loadSidebar]);
 
   useEffect(() => {
     if (!socket) return undefined;

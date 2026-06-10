@@ -1,0 +1,46 @@
+# Render Blueprint — Chatio Backend (WebSocket + Socket.IO)
+# Deploy: Render Dashboard → New → Blueprint → connect this repo
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: chatio-backend
+    runtime: node
+    rootDir: Server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: ZEGO_APP_ID
+        sync: false
+      - key: ZEGO_SERVER_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
