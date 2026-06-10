@@ -5,7 +5,6 @@ import RightSidebar from "../components/RightSidebar";
 import ProfileEditorPanel from "../components/ProfileEditorPanel";
 import CreateGroupPanel from "../components/CreateGroupPanel";
 import CallOverlay from "../components/CallOverlay";
-import IncomingCallNotification from "../components/IncomingCallNotification";
 import {
   addGroupMembers,
   createDirectChat,
@@ -298,7 +297,7 @@ const ChatPage = () => {
 
   const handleAcceptIncomingCall = () => {
     if (incomingCall) {
-      setActiveCall(incomingCall);
+      setActiveCall({ ...incomingCall, autoAccept: true });
       setIncomingCall(null);
     }
   };
@@ -345,6 +344,9 @@ const ChatPage = () => {
             statuses={statuses}
             callLogs={callLogs}
             onStartCall={handleStartCall}
+            incomingCall={incomingCall}
+            onAcceptCall={handleAcceptIncomingCall}
+            onRejectCall={handleRejectIncomingCall}
           />
         )}
         <ChatContainer
@@ -383,11 +385,6 @@ const ChatPage = () => {
               .then((result) => setCallLogs(result.data.calls || []))
               .catch(() => {});
           }}
-        />
-        <IncomingCallNotification
-          call={incomingCall}
-          onAccept={handleAcceptIncomingCall}
-          onReject={handleRejectIncomingCall}
         />
       </div>
     </div>

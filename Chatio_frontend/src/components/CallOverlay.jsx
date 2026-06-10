@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mic, MicOff, Phone, Video, VideoOff } from "lucide-react";
 import assets from "../assets/assets";
 import { createCallLog } from "../api/api";
@@ -14,6 +14,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
   const pendingIceRef = useRef([]);
+  const acceptedCallRef = useRef(null);
   const [status, setStatus] = useState(
     activeCall?.incoming ? "Incoming call" : "Calling",
   );
@@ -27,6 +28,13 @@ const CallOverlay = ({ activeCall, onClose }) => {
         .filter((id) => id !== user?._id) || [],
     [activeCall?.conversation?.members, user?._id],
   );
+
+  useEffect(() => {
+    if (!activeCall) return;
+    setStatus(activeCall.incoming ? "Incoming call" : "Calling");
+    setMuted(false);
+    setCameraOff(false);
+  }, [activeCall]);
 
   useEffect(() => {
     if (!socket || !activeCall) return undefined;
@@ -124,8 +132,19 @@ const CallOverlay = ({ activeCall, onClose }) => {
     };
   }, [activeCall, onClose, receiverIds, socket, user]);
 
-  const acceptCall = async () => {
-    if (!socket) return;
+  const endCall = useCallback(() => {
+    if (!activeCall) return;
+    const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
+    console.log("Ending call, sending to", targets);
+    socket?.emit("call:end", {
+      receiverIds: targets,
+      callId: activeCall.callId,
+    });
+    onClose();
+  }, [activeCall, onClose, receiverIds, socket]);
+
+  const acceptCall = useCallback(async () => {
+    if (!socket || !activeCall) return;
     try {
       console.log("Accepting incoming call from", activeCall.from);
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -182,17 +201,14 @@ const CallOverlay = ({ activeCall, onClose }) => {
       );
       endCall();
     }
-  };
+  }, [activeCall, endCall, socket]);
 
-  const endCall = () => {
-    const targets = activeCall.incoming ? [activeCall.from] : receiverIds;
-    console.log("Ending call, sending to", targets);
-    socket?.emit("call:end", {
-      receiverIds: targets,
-      callId: activeCall.callId,
-    });
-    onClose();
-  };
+  useEffect(() => {
+    if (!activeCall?.incoming || !activeCall.autoAccept) return;
+    if (acceptedCallRef.current === activeCall.callId) return;
+    acceptedCallRef.current = activeCall.callId;
+    acceptCall();
+  }, [acceptCall, activeCall?.autoAccept, activeCall?.callId, activeCall?.incoming]);
 
   const toggleMute = () => {
     localStreamRef.current?.getAudioTracks().forEach((track) => {

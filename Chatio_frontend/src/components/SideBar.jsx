@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import IncomingCallNotification from "./IncomingCallNotification";
 
 const SideBar = ({
   slectedUser,
@@ -32,6 +33,9 @@ const SideBar = ({
   statuses = [],
   callLogs = [],
   onStartCall,
+  incomingCall,
+  onAcceptCall,
+  onRejectCall,
 }) => {
   const navigate = useNavigate();
   const [showNewChat, setShowNewChat] = useState(false);
@@ -275,6 +279,12 @@ const SideBar = ({
             </button>
           ))}
         </div>
+
+        <IncomingCallNotification
+          call={incomingCall}
+          onAccept={onAcceptCall}
+          onReject={onRejectCall}
+        />
       </div>
 
 
