@@ -33,45 +33,23 @@ export const statusApi = axios.create({
   timeout: 10000,
 });
 
-// Error interceptor to handle network errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (!error.response) {
-      // Network error
-      error.response = {
-        data: {
-          message:
-            "Network error - Backend server is not accessible. Please check your connection.",
-        },
-        status: 0,
-      };
-    }
-    return Promise.reject(error);
-  },
-);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-messageApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (!error.response) {
-      // Network error
-      error.response = {
-        data: {
-          message:
-            "Network error - Backend server is not accessible. Please check your connection.",
-        },
-        status: 0,
-      };
-    }
-    return Promise.reject(error);
-  },
-);
-
-[callApi, statusApi, presenceApi, aiApi].forEach((client) => {
+const attachNetworkRecovery = (client) => {
   client.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
+      const config = error.config || {};
+      const method = (config.method || "get").toLowerCase();
+      const canRetry = !error.response && method === "get";
+      config.__retryCount = config.__retryCount || 0;
+
+      if (canRetry && config.__retryCount < 3) {
+        config.__retryCount += 1;
+        await sleep(700 * config.__retryCount);
+        return client(config);
+      }
+
       if (!error.response) {
         error.response = {
           data: {
@@ -84,7 +62,9 @@ messageApi.interceptors.response.use(
       return Promise.reject(error);
     },
   );
-});
+};
+
+[api, messageApi, callApi, statusApi, presenceApi, aiApi].forEach(attachNetworkRecovery);
 
 export const setAuthToken = (token) => {
   if (token) {

@@ -31,7 +31,7 @@ const ChatPage = () => {
   const [unseenMessages, setUnseenMessages] = useState({});
   const [callLogs, setCallLogs] = useState([]);
   const [statuses, setStatuses] = useState([]);
-  const [isSidebarLoading, setIsSidebarLoading] = useState(false);
+  const [isSidebarLoading, setIsSidebarLoading] = useState(true);
   const { socket, socketReady, user, trackOnlineUsers } = useAuth();
   const { startCall } = useCall();
   const { setLoading, isLoading } = useLoading();
@@ -85,7 +85,9 @@ const ChatPage = () => {
         .then((result) => setStatuses(result.data.statuses || []))
         .catch(() => setStatuses([]));
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to load chats");
+      if (error.response?.status !== 0) {
+        toast.error(error.response?.data?.message || "Failed to load chats");
+      }
     } finally {
       setIsSidebarLoading(false);
     }

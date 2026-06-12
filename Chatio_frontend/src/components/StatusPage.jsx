@@ -31,6 +31,7 @@ const StatusPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const [progress, setProgress] = useState(0);
+  const consumedTargetUserRef = useRef(null);
 
   const groups = useMemo(() => {
     const grouped = statuses.reduce((acc, status) => {
@@ -97,11 +98,16 @@ const StatusPage = () => {
 
   useEffect(() => {
     const targetUserId = location.state?.userId;
+    if (targetUserId !== consumedTargetUserRef.current) {
+      consumedTargetUserRef.current = null;
+    }
+    if (targetUserId && consumedTargetUserRef.current === targetUserId) return;
     if (!targetUserId || !groups.length) return;
     const index = groups.findIndex(
       (group) => asId(group.user?._id) === asId(targetUserId),
     );
     if (index >= 0) {
+      consumedTargetUserRef.current = targetUserId;
       setSelectedUserIndex(index);
       setStatusIndex(0);
     }
@@ -114,14 +120,9 @@ const StatusPage = () => {
       setStatusIndex((index) => index + 1);
       return;
     }
-    if (selectedUserIndex < groups.length - 1) {
-      setSelectedUserIndex((index) => index + 1);
-      setStatusIndex(0);
-      return;
-    }
     setSelectedUserIndex(null);
     setStatusIndex(0);
-  }, [groups.length, selectedGroup, selectedUserIndex, statusIndex]);
+  }, [selectedGroup, statusIndex]);
 
   const goPrevious = useCallback(() => {
     setShowViewers(false);

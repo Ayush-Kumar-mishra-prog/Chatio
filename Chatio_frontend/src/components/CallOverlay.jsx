@@ -37,7 +37,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
     setMuted(false);
     setCameraOff(false);
     invitedRef.current = false;
-  }, [activeCall?.callId]);
+  }, [activeCall]);
 
   const endCall = useCallback(() => {
     if (!activeCall) return;
@@ -102,7 +102,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
       }).catch(() => {});
 
       setStatus("Connected");
-    } catch (error) {
+    } catch {
       toast.error("Could not join call. Allow microphone and camera access.");
       endCall();
     }
@@ -163,7 +163,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
             status: "outgoing",
           }).catch(() => {});
         }
-      } catch (error) {
+      } catch {
         toast.error("Call could not start. Allow microphone and camera access.");
         onClose();
       }
@@ -234,34 +234,48 @@ const CallOverlay = ({ activeCall, onClose }) => {
     assets.avatar_icon;
 
   const showAcceptUi = activeCall.incoming && status === "Incoming call";
+  const isVideoCall = activeCall.type === "video";
+  const isConnected = status === "Connected";
 
   return (
-    <div className="fixed inset-0 z-[80] bg-[#111b21] text-white flex flex-col">
-      <div className="pt-10 pb-4 text-center">
-        <img
-          src={peerImage}
-          alt=""
-          className="mx-auto h-28 w-28 rounded-full object-cover border-4 border-white/10"
-        />
-        <h2 className="mt-5 text-2xl font-semibold">{peerName}</h2>
-        <p className="mt-1 text-sm text-white/60">{status}</p>
-      </div>
+    <div className="fixed inset-0 z-[80] bg-[#0b141a] text-white flex flex-col overflow-hidden">
+      {(!isVideoCall || !isConnected) && (
+        <div className="pt-[max(2rem,env(safe-area-inset-top))] pb-4 text-center shrink-0">
+          {(!isVideoCall || !isConnected) && (
+            <img
+              src={peerImage}
+              alt=""
+              className="mx-auto h-24 w-24 sm:h-28 sm:w-28 rounded-full object-cover border-4 border-white/10"
+            />
+          )}
+          <h2 className="mt-5 px-6 text-2xl max-sm:text-xl font-semibold truncate">{peerName}</h2>
+          <p className="mt-1 text-sm text-white/60">{status}</p>
+        </div>
+      )}
 
-      {activeCall.type === "video" ? (
-        <div className="relative flex-1 mx-4 mb-4 rounded-xl overflow-hidden bg-black">
+      {isVideoCall ? (
+        <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
             className="h-full w-full object-cover"
           />
+          {isConnected && (
+            <div className="absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-10 max-w-[calc(100%-7rem)] rounded-full bg-black/45 px-3 py-2 backdrop-blur-md sm:left-5 sm:top-[calc(1rem+env(safe-area-inset-top))]">
+              <p className="max-w-56 truncate text-sm font-semibold leading-4 sm:max-w-72">
+                {peerName}
+              </p>
+              <p className="text-[11px] leading-4 text-[#9deacb]">{status}</p>
+            </div>
+          )}
           {!cameraOff && (
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className="absolute bottom-4 right-4 h-32 w-24 rounded-lg object-cover border-2 border-white/30 bg-slate-900"
+              className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-10 h-28 w-20 rounded-xl object-cover border-2 border-white/35 bg-slate-900 shadow-2xl sm:right-5 sm:top-[calc(1rem+env(safe-area-inset-top))] sm:h-36 sm:w-24 md:h-40 md:w-28"
             />
           )}
         </div>
@@ -273,11 +287,11 @@ const CallOverlay = ({ activeCall, onClose }) => {
         </>
       )}
 
-      <div className="flex items-center justify-center gap-6 pb-12 px-6">
+      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-4 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-10 bg-gradient-to-t from-black/70 via-black/25 to-transparent sm:gap-6 sm:pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={toggleMute}
-          className="h-14 w-14 rounded-full bg-white/10 grid place-items-center hover:bg-white/20"
+          className="h-12 w-12 rounded-full bg-white/15 grid place-items-center hover:bg-white/25 sm:h-14 sm:w-14"
           title="Mute"
         >
           {muted ? <MicOff className="size-6" /> : <Mic className="size-6" />}
@@ -287,7 +301,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
           <button
             type="button"
             onClick={toggleCamera}
-            className="h-14 w-14 rounded-full bg-white/10 grid place-items-center hover:bg-white/20"
+            className="h-12 w-12 rounded-full bg-white/15 grid place-items-center hover:bg-white/25 sm:h-14 sm:w-14"
             title="Camera"
           >
             {cameraOff ? <VideoOff className="size-6" /> : <Video className="size-6" />}
@@ -298,7 +312,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
           <button
             type="button"
             onClick={acceptCall}
-            className="h-16 w-16 rounded-full bg-[#00a884] grid place-items-center hover:bg-[#008f72]"
+            className="h-14 w-14 rounded-full bg-[#00a884] grid place-items-center hover:bg-[#008f72] sm:h-16 sm:w-16"
             title="Accept"
           >
             <Phone className="size-7" />
@@ -308,7 +322,7 @@ const CallOverlay = ({ activeCall, onClose }) => {
         <button
           type="button"
           onClick={endCall}
-          className="h-16 w-16 rounded-full bg-red-500 grid place-items-center hover:bg-red-600 rotate-[135deg]"
+          className="h-14 w-14 rounded-full bg-red-500 grid place-items-center hover:bg-red-600 rotate-[135deg] sm:h-16 sm:w-16"
           title="End call"
         >
           <Phone className="size-7" />

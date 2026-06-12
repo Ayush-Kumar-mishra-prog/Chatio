@@ -116,10 +116,25 @@ const SideBar = ({
     setShowNewChat(false);
   };
 
+  const renderChatSkeleton = () => (
+    <div className="px-4 py-3 space-y-4">
+      {Array.from({ length: 7 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-3 animate-pulse">
+          <div className="h-11 w-11 rounded-full bg-slate-200" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3.5 w-2/3 rounded-full bg-slate-200" />
+            <div className="h-3 w-4/5 rounded-full bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderConversationList = (items, type = "chat") => (
     <div className="py-2">
+      {isLoading && !items.length && renderChatSkeleton()}
       {!items.length && (
-        <div className="px-4 py-8 text-center text-sm text-slate-500">
+        <div className={`px-4 py-8 text-center text-sm text-slate-500 ${isLoading ? "hidden" : ""}`}>
           {isLoading ? "Loading..." : type === "favorite" ? "No favorite chats yet" : "No chats yet"}
         </div>
       )}
@@ -347,16 +362,12 @@ const SideBar = ({
       return renderConversationList(filteredFavorites, "favorite");
     if (activeTab === "Status") return renderStatusList();
     if (activeTab === "Calls") return renderCallsList();
-    const chatItems =
-      activeTab === "Chats"
-        ? [buildMirrorAiChat(assets.aiAvatar), ...filteredUsers]
-        : filteredUsers;
-    return renderConversationList(chatItems, "chat");
+    return renderConversationList(filteredUsers, "chat");
   };
 
   return (
     <div
-      className={`bg-white h-full max-md:h-dvh min-h-0 border-r border-emerald-100 text-slate-950 flex flex-col ${slectedUser ? "max-md:hidden" : ""}`}
+      className={`relative bg-white h-full max-md:h-dvh min-h-0 border-r border-emerald-100 text-slate-950 flex flex-col ${slectedUser ? "max-md:hidden" : ""}`}
     >
       <div className="px-4 pt-4 pb-3 border-b border-emerald-100">
         <div className="flex justify-between items-center">
@@ -412,7 +423,7 @@ const SideBar = ({
       </div>
 
 
-      <div className="flex-1 min-h-0 overflow-y-scroll">
+      <div className="flex-1 min-h-0 overflow-y-scroll pb-20">
         {showNewChat ? (
           <div className="h-full flex flex-col">
             <div className="px-4 pt-3 pb-2 border-b border-emerald-100">
@@ -486,6 +497,16 @@ const SideBar = ({
           </>
         )}
       </div>
+      {!showNewChat && activeTab === "Chats" && (
+        <button
+          type="button"
+          onClick={() => selectConversation(buildMirrorAiChat(assets.aiAvatar))}
+          className="absolute right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 h-14 w-14 rounded-2xl bg-[#00a884] text-white shadow-xl shadow-emerald-900/25 grid place-items-center hover:bg-[#008f72] transition"
+          title="MirrorAI"
+        >
+          <img src={assets.aiAvatar} alt="" className="h-8 w-8 object-contain" />
+        </button>
+      )}
       <div className="grid grid-cols-3 shrink-0 sticky bottom-0 z-10 border-t border-emerald-100 bg-white px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {bottomTabs.map(({ label, icon: Icon }) => (
           <button
