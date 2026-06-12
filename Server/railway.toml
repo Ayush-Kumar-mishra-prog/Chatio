@@ -1,5 +1,4 @@
-# Railway config — set "Root Directory" to Server in Railway dashboard
-# Docs: https://docs.railway.com/guides/config-as-code
+
 
 [build]
 builder = "NIXPACKS"
