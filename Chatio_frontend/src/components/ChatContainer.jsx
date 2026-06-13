@@ -4,7 +4,11 @@ import { asId, formatMessageTime } from "../lib/utils";
 import { ArrowLeft, ImageIcon, Phone, Send, Video, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLoading } from "../context/LoadingContext";
-import { getChatMessages, sendChatMessage, sendMirrorAiMessage } from "../api/api";
+import {
+  getChatMessages,
+  sendChatMessage,
+  sendMirrorAiMessage,
+} from "../api/api";
 import LoadingSpinner from "./LoadingSpinner";
 import { toast } from "react-toastify";
 import {
@@ -12,6 +16,7 @@ import {
   loadMirrorAiMessages,
   saveMirrorAiMessages,
 } from "../lib/mirrorAi";
+import ReactMarkdown from "react-markdown";
 
 const MAX_IMAGES = 4;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -98,7 +103,9 @@ const ChatContainer = ({
         });
       } catch (error) {
         if (!controller.signal.aborted) {
-          toast.error(error.response?.data?.message || "Failed to load messages");
+          toast.error(
+            error.response?.data?.message || "Failed to load messages",
+          );
         }
       } finally {
         if (!controller.signal.aborted) setIsLoadingMessages(false);
@@ -118,7 +125,9 @@ const ChatContainer = ({
     if (!socket || isMirrorAiChat) return undefined;
 
     const handleNewMessage = (message) => {
-      if (asId(message.conversationId) !== asId(selectedConversationIdRef.current))
+      if (
+        asId(message.conversationId) !== asId(selectedConversationIdRef.current)
+      )
         return;
       setMessages((current) => appendUniqueMessage(current, message));
       onConversationUpdatedRef.current?.({
@@ -129,7 +138,8 @@ const ChatContainer = ({
     };
 
     const handleMessagesSeen = ({ conversationId, messageIds = [] }) => {
-      if (asId(conversationId) !== asId(selectedConversationIdRef.current)) return;
+      if (asId(conversationId) !== asId(selectedConversationIdRef.current))
+        return;
       setMessages((current) =>
         current.map((message) =>
           messageIds.some((id) => asId(id) === asId(message._id))
@@ -158,9 +168,7 @@ const ChatContainer = ({
         setMessages((current) => {
           const merged = [...fetched];
           current.forEach((message) => {
-            if (
-              !merged.some((item) => asId(item._id) === asId(message._id))
-            ) {
+            if (!merged.some((item) => asId(item._id) === asId(message._id))) {
               merged.push(message);
             }
           });
@@ -168,8 +176,7 @@ const ChatContainer = ({
             (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
           );
         });
-      } catch {
-      }
+      } catch {}
     };
 
     const interval = setInterval(pollMessages, 3000);
@@ -192,7 +199,10 @@ const ChatContainer = ({
 
     try {
       const history = nextMessages.slice(-20).map((msg) => ({
-        role: msg.role === "user" || asId(msg.senderId) === asId(user._id) ? "user" : "assistant",
+        role:
+          msg.role === "user" || asId(msg.senderId) === asId(user._id)
+            ? "user"
+            : "assistant",
         text: msg.text,
       }));
       const { data } = await sendMirrorAiMessage({
@@ -216,7 +226,9 @@ const ChatContainer = ({
         updatedAt: aiMessage.createdAt,
       });
     } catch (error) {
-      toast.error(error.response?.data?.message || "MirrorAI could not respond");
+      toast.error(
+        error.response?.data?.message || "MirrorAI could not respond",
+      );
     } finally {
       setIsAiThinking(false);
     }
@@ -387,60 +399,67 @@ const ChatContainer = ({
         )}
         {!isLoadingMessages &&
           messages.map((msg) => {
-          const isMine =
-            isMirrorAiChat
+            const isMine = isMirrorAiChat
               ? msg.role === "user" || asId(msg.senderId) === asId(user?._id)
               : asId(msg.senderId) === asId(user?._id);
-          return (
-            <div
-              key={msg._id}
-              className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}
-            >
-              <div className="text-center text-xs">
-                <img
-                  src={
-                    isMine
-                      ? user?.image || assets.avatar_icon
-                      : slectedUser?.profilePic || assets.avatar_icon
-                  }
-                  alt=""
-                  className="w-7 h-7 object-cover rounded-full"
-                />
-                <p className="text-slate-500">
-                  {formatMessageTime(msg.createdAt)}
-                </p>
-              </div>
+            return (
               <div
-                className={`max-w-72 md:max-w-96 rounded-lg mb-2 break-words shadow-sm overflow-hidden ${isMine ? "rounded-br-none bg-[#d9fdd3] text-slate-900" : "rounded-bl-none bg-white text-slate-900"}`}
+                key={msg._id}
+                className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}
               >
-                {!!(msg.images?.length || msg.image) && (
-                  <div
-                    className={`grid gap-1 p-1 ${(msg.images?.length || 1) > 1 ? "grid-cols-2" : "grid-cols-1"}`}
-                  >
-                    {(msg.images?.length ? msg.images : [msg.image]).map(
-                      (url, index) => (
-                        <img
-                          key={`${msg._id}-${index}`}
-                          src={url}
-                          alt=""
-                          className="h-40 w-full object-cover rounded-md border border-white"
-                        />
-                      ),
-                    )}
-                  </div>
-                )}
-                {msg.text && <p className="px-3 py-2 text-sm">{msg.text}</p>}
-                {isMine && !isMirrorAiChat && (
-                  <span
-                    className={`flex justify-end px-2 pb-1 text-[11px] ${msg.seen ? "text-[#34b7f1]" : "text-slate-500"}`}
-                  >
-                    {msg.seen ? "Seen" : "Sent"}
-                  </span>
-                )}
+                <div className="text-center text-xs">
+                  <img
+                    src={
+                      isMine
+                        ? user?.image || assets.avatar_icon
+                        : slectedUser?.profilePic || assets.avatar_icon
+                    }
+                    alt=""
+                    className="w-7 h-7 object-cover rounded-full"
+                  />
+                  <p className="text-slate-500">
+                    {formatMessageTime(msg.createdAt)}
+                  </p>
+                </div>
+                <div
+                  className={`max-w-72 md:max-w-96 rounded-lg mb-2 break-words shadow-sm overflow-hidden ${isMine ? "rounded-br-none bg-[#d9fdd3] text-slate-900" : "rounded-bl-none bg-white text-slate-900"}`}
+                >
+                  {!!(msg.images?.length || msg.image) && (
+                    <div
+                      className={`grid gap-1 p-1 ${(msg.images?.length || 1) > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                    >
+                      {(msg.images?.length ? msg.images : [msg.image]).map(
+                        (url, index) => (
+                          <img
+                            key={`${msg._id}-${index}`}
+                            src={url}
+                            alt=""
+                            className="h-40 w-full object-cover rounded-md border border-white"
+                          />
+                        ),
+                      )}
+                    </div>
+                  )}
+                  {msg.text && (
+                    <div className="px-3 py-2 text-sm prose prose-sm max-w-none">
+                      {isMirrorAiChat && !isMine ? (
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      ) : (
+                        <p>{msg.text}</p>
+                      )}
+                    </div>
+                  )}
+                  {isMine && !isMirrorAiChat && (
+                    <span
+                      className={`flex justify-end px-2 pb-1 text-[11px] ${msg.seen ? "text-[#34b7f1]" : "text-slate-500"}`}
+                    >
+                      {msg.seen ? "Seen" : "Sent"}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
         {isAiThinking && (
           <div className="flex items-end gap-2 justify-start">
             <div className="text-center text-xs">
@@ -509,24 +528,26 @@ const ChatContainer = ({
             />
             {!isMirrorAiChat && (
               <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              id="image"
-              accept="image/*"
-              multiple
-              hidden
-              className=""
-              onChange={handleImageChange}
-            />
-            <label
-              htmlFor="image"
-              className={
-                isBlocked ? "pointer-events-none opacity-40" : "cursor-pointer"
-              }
-            >
-              <ImageIcon className="w-6 mr-2 text-slate-500" />
-            </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="image"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  className=""
+                  onChange={handleImageChange}
+                />
+                <label
+                  htmlFor="image"
+                  className={
+                    isBlocked
+                      ? "pointer-events-none opacity-40"
+                      : "cursor-pointer"
+                  }
+                >
+                  <ImageIcon className="w-6 mr-2 text-slate-500" />
+                </label>
               </>
             )}
           </div>
