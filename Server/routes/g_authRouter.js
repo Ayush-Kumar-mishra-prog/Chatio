@@ -5,6 +5,8 @@ import {
   deleteAccount,
   getMe,
   login,
+  logout,
+  refreshToken,
   signup,
   updateProfile,
   verifyEmail,
@@ -20,6 +22,8 @@ router.post('/facebook', facebookLogin)
 router.post('/signup', signup)
 router.post('/verify-email', verifyEmail)
 router.post('/login', login)
+router.post('/refresh', refreshToken)
+router.post('/logout', protect, logout)
 router.get('/me', protect, getMe)
 router.put('/profile', protect, updateProfile)
 router.delete('/account', protect, deleteAccount)

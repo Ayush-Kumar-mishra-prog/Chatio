@@ -12,6 +12,7 @@ import {
   BACKEND,
   getMe,
   getOnlineUsersApi,
+  logoutUser,
   sendPresenceHeartbeat,
   setAuthToken,
 } from "../api/api";
@@ -20,6 +21,7 @@ import { asId } from "../lib/utils";
 const AuthContext = createContext(null);
 
 const TOKEN_KEY = "chatio_token";
+const REFRESH_TOKEN_KEY = "chatio_refresh_token";
 const USER_KEY = "chatio_user";
 
 export const AuthProvider = ({ children }) => {
@@ -36,7 +38,9 @@ export const AuthProvider = ({ children }) => {
   const trackedUserIdsRef = useRef([]);
 
   const logout = useCallback(() => {
+    logoutUser().catch(() => {});
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     socketRef.current?.disconnect();
     socketRef.current = null;
@@ -150,9 +154,12 @@ export const AuthProvider = ({ children }) => {
     trackedUserIdsRef.current = [...new Set(userIds.map(asId).filter(Boolean))];
   }, []);
 
-  const saveSession = (nextToken, nextUser) => {
+  const saveSession = (nextToken, nextUser, nextRefreshToken = null) => {
     localStorage.setItem(TOKEN_KEY, nextToken);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    if (nextRefreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
+    }
     setAuthToken(nextToken);
     setToken(nextToken);
     setUser(nextUser);

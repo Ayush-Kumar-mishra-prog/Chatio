@@ -18,7 +18,7 @@ const EnterVerificationCode = () => {
     try {
       setIsVerifying(true);
       const result = await verifyEmail({ email, code });
-      saveSession(result.data.token, result.data.user);
+      saveSession(result.data.token, result.data.user, result.data.refreshToken);
       toast.success("Email verified");
       navigate("/chat", { replace: true });
     } catch (error) {

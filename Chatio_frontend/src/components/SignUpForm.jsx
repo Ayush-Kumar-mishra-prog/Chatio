@@ -50,7 +50,7 @@ const SignUpForm = ({ onLoginClick }) => {
       if (!authResult?.code) return;
       setIsLoading(true);
       const result = await googleAuth(authResult.code);
-      saveSession(result.data.token, result.data.user);
+      saveSession(result.data.token, result.data.user, result.data.refreshToken);
       navigate("/chat", { replace: true });
       toast.success("Logged in successfully");
     } catch (error) {

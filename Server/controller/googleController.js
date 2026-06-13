@@ -1,7 +1,7 @@
 import { oauth2client } from "../configs/googleConfig.js";
 import { google } from "googleapis";
 import GUser from "../models/google.model.js";
-import { createToken, publicUser } from "../utils/auth.js";
+import { issueAuthTokens, publicUser } from "../utils/auth.js";
 import { uploadIfNeeded } from "../utils/uploadImage.js";
 
 const googleLogin = async (req, res) => {
@@ -39,11 +39,14 @@ const googleLogin = async (req, res) => {
       await user.save();
     }
 
-    const token = createToken(user);
+    const { token, refreshToken } = await issueAuthTokens(user);
 
-    return res
-      .status(200)
-      .json({ message: "success", token, user: publicUser(user) });
+    return res.status(200).json({
+      message: "success",
+      token,
+      refreshToken,
+      user: publicUser(user),
+    });
   } catch (error) {
     console.error("Error fetching Google access token:", error);
     res

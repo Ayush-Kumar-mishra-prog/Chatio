@@ -4,8 +4,10 @@ import GUser from "../models/google.model.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import {
-  createToken,
+  clearRefreshToken,
   createVerificationCode,
+  issueAuthTokens,
+  parseRefreshToken,
   publicUser,
 } from "../utils/auth.js";
 import { sendVerificationEmail } from "../services/emailService.js";
@@ -49,10 +51,18 @@ export const signup = async (req, res) => {
       emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    await sendVerificationEmail({
-      to: normalizedEmail,
-      code: verificationCode,
-    });
+    try {
+      await sendVerificationEmail({
+        to: normalizedEmail,
+        code: verificationCode,
+      });
+    } catch (emailError) {
+      await GUser.deleteOne({ _id: user._id });
+      console.error("Verification email error:", emailError);
+      return res.status(503).json({
+        message: "Could not send verification email. Please try again later.",
+      });
+    }
 
     return res.status(201).json({
       message: "Verification code sent to your email",
@@ -79,10 +89,11 @@ export const verifyEmail = async (req, res) => {
     }
 
     if (user.isEmailVerified) {
-      const token = createToken(user);
+      const { token, refreshToken } = await issueAuthTokens(user);
       return res.json({
         message: "Email already verified",
         token,
+        refreshToken,
         user: publicUser(user),
       });
     }
@@ -100,10 +111,11 @@ export const verifyEmail = async (req, res) => {
     user.emailVerificationExpires = undefined;
     await user.save();
 
-    const token = createToken(user);
+    const { token, refreshToken } = await issueAuthTokens(user);
     return res.json({
       message: "Email verified",
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -144,10 +156,11 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = createToken(user);
+    const { token, refreshToken } = await issueAuthTokens(user);
     return res.json({
       message: "Login successful",
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -206,10 +219,11 @@ export const facebookLogin = async (req, res) => {
       await user.save();
     }
 
-    const token = createToken(user);
+    const { token, refreshToken } = await issueAuthTokens(user);
     return res.json({
       message: "Login successful",
       token,
+      refreshToken,
       user: publicUser(user),
     });
   } catch (error) {
@@ -217,6 +231,59 @@ export const facebookLogin = async (req, res) => {
     const message =
       error.response?.data?.message || error.message || "Facebook login failed";
     return res.status(500).json({ message });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken: incomingRefreshToken } = req.body;
+
+    if (!incomingRefreshToken) {
+      return res.status(400).json({ message: "Refresh token is required" });
+    }
+
+    const parsed = parseRefreshToken(incomingRefreshToken);
+    if (!parsed?.userId || !parsed.secret) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const user = await GUser.findById(parsed.userId).select(
+      "+refreshTokenHash +refreshTokenExpires",
+    );
+
+    if (
+      !user ||
+      !user.refreshTokenHash ||
+      !user.refreshTokenExpires ||
+      user.refreshTokenExpires < new Date()
+    ) {
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+
+    const tokenMatches = await bcrypt.compare(parsed.secret, user.refreshTokenHash);
+    if (!tokenMatches) {
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+
+    const tokens = await issueAuthTokens(user);
+    return res.json({
+      message: "Token refreshed",
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
+    });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    return res.status(500).json({ message: "Token refresh failed" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    await clearRefreshToken(req.user);
+    return res.json({ message: "Logged out" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ message: "Logout failed" });
   }
 };
 
@@ -251,6 +318,7 @@ export const deleteAccount = async (req, res) => {
       $or: [{ senderId: userId }, { conversationId: { $in: conversationIds } }],
     });
     await Conversation.deleteMany({ _id: { $in: conversationIds } });
+    await clearRefreshToken(req.user);
     await GUser.deleteOne({ _id: userId });
 
     return res.json({ message: "Account deleted" });

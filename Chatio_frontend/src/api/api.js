@@ -66,6 +66,83 @@ const attachNetworkRecovery = (client) => {
 
 [api, messageApi, callApi, statusApi, presenceApi, aiApi].forEach(attachNetworkRecovery);
 
+const TOKEN_KEY = "chatio_token";
+const REFRESH_TOKEN_KEY = "chatio_refresh_token";
+
+let isRefreshing = false;
+let refreshQueue = [];
+
+const processRefreshQueue = (error, token = null) => {
+  refreshQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve(token);
+  });
+  refreshQueue = [];
+};
+
+const attachAuthRefresh = (client) => {
+  client.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config || {};
+      const status = error.response?.status;
+      const isAuthRequest =
+        originalRequest.url?.includes("/refresh") ||
+        originalRequest.url?.includes("/login") ||
+        originalRequest.url?.includes("/signup") ||
+        originalRequest.url?.includes("/verify-email");
+
+      if (status !== 401 || originalRequest._retry || isAuthRequest) {
+        return Promise.reject(error);
+      }
+
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      if (!refreshToken) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return client(originalRequest);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const { data } = await axios.post(`${BACKEND}/auth/refresh`, {
+          refreshToken,
+        });
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        if (data.refreshToken) {
+          localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+        }
+
+        setAuthToken(data.token);
+        processRefreshQueue(null, data.token);
+        originalRequest.headers.Authorization = `Bearer ${data.token}`;
+        return client(originalRequest);
+      } catch (refreshError) {
+        processRefreshQueue(refreshError, null);
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        localStorage.removeItem("chatio_user");
+        setAuthToken(null);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    },
+  );
+};
+
+[api, messageApi, callApi, statusApi, presenceApi, aiApi].forEach(attachAuthRefresh);
+
 export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
@@ -89,6 +166,9 @@ export const facebookAuth = (payload) => api.post("/facebook", payload);
 export const loginUser = (payload) => api.post("/login", payload);
 export const signupUser = (payload) => api.post("/signup", payload);
 export const verifyEmail = (payload) => api.post("/verify-email", payload);
+export const refreshAccessToken = (refreshToken) =>
+  api.post("/refresh", { refreshToken });
+export const logoutUser = () => api.post("/logout");
 export const getMe = () => api.get("/me");
 export const updateProfile = (payload) => api.put("/profile", payload);
 export const deleteAccount = () => api.delete("/account");

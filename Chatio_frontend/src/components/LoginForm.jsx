@@ -21,7 +21,7 @@ const LoginForm = ({ onSignUpClick }) => {
     try {
       setIsLoading(true);
       const result = await loginUser(data);
-      saveSession(result.data.token, result.data.user);
+      saveSession(result.data.token, result.data.user, result.data.refreshToken);
       navigate("/chat", { replace: true });
       toast.success("Logged in successfully");
     } catch (error) {
@@ -41,7 +41,7 @@ const LoginForm = ({ onSignUpClick }) => {
       setIsLoading(true);
       if (authResult?.code) {
         const result = await googleAuth(authResult.code);
-        saveSession(result.data.token, result.data.user);
+        saveSession(result.data.token, result.data.user, result.data.refreshToken);
         navigate("/chat", { replace: true });
         toast.success("Logged in successfully");
       }
@@ -72,7 +72,7 @@ const LoginForm = ({ onSignUpClick }) => {
         email: response.email,
         image: response.picture?.data?.url,
       });
-      saveSession(result.data.token, result.data.user);
+      saveSession(result.data.token, result.data.user, result.data.refreshToken);
       navigate("/chat", { replace: true });
       toast.success("Logged in successfully");
     } catch (error) {
