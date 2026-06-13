@@ -490,7 +490,7 @@ const SideBar = ({
                 }
                 className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
               >
-                <Plus className="size-5" />
+                <Plus className="size-3.5" />
               </button>
             </div>
             {renderActiveContent()}
