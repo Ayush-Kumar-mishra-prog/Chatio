@@ -20,6 +20,7 @@ import { isMirrorAi } from "../lib/mirrorAi";
 import { useEffect, useState } from "react";
 import { getChatMessages } from "../api/api";
 import LoadingSpinner from "./LoadingSpinner";
+import { asId } from "../lib/utils";
 
 const RightSidebar = ({
   slectedUser,
