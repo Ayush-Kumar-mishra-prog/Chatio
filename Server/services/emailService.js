@@ -1,13 +1,23 @@
 import nodemailer from "nodemailer";
 
+const getEnv = (...keys) => {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+};
+
 const getMailTransport = async () => {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const port = Number(process.env.SMTP_PORT) || 587;
+  const host = getEnv("SMTP_HOST");
+  const user = getEnv("SMTP_USER");
+  const pass = getEnv("SMTP_PASS", "SMTP_PASSWORD");
+  const port = Number(getEnv("SMTP_PORT")) || 587;
 
   if (!host || !user || !pass) {
-    console.error("SMTP is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS required)");
+    console.error(
+      "SMTP is not configured (SMTP_HOST, SMTP_USER, and SMTP_PASS or SMTP_PASSWORD required)",
+    );
     return null;
   }
 
@@ -35,7 +45,7 @@ export const sendVerificationEmail = async ({ to, code }) => {
     throw new Error("Email service is not configured");
   }
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = getEnv("SMTP_FROM", "SENDER_EMAIL", "SMTP_USER");
 
   const info = await transport.sendMail({
     from,
