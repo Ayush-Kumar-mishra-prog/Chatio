@@ -1,51 +1,20 @@
 import nodemailer from "nodemailer";
 
-let cachedTransport = null;
-let cachedTransportKey = "";
-
-const getEnv = (...keys) => {
-  for (const key of keys) {
-    const value = process.env[key]?.trim();
-    if (value) return value;
-  }
-  return "";
-};
-
-const getMissingSmtpGroups = ({ host, user, pass }) => {
-  const missing = [];
-  if (!host) missing.push("SMTP_HOST");
-  if (!user) missing.push("SMTP_USER");
-  if (!pass) missing.push("SMTP_PASS or SMTP_PASSWORD");
-  return missing;
-};
 
 const getMailTransport = async () => {
-  const host = getEnv("SMTP_HOST", "MAIL_HOST", "EMAIL_HOST");
-  const user = getEnv("SMTP_USER", "MAIL_USER", "EMAIL_USER");
-  const pass = getEnv("SMTP_PASS", "SMTP_PASSWORD", "MAIL_PASS", "EMAIL_PASS");
-  const port = Number(getEnv("SMTP_PORT")) || 587;
-  const transportKey = `${host}:${port}:${user}`;
+  
 
-  if (!host || !user || !pass) {
-    const missing = getMissingSmtpGroups({ host, user, pass });
-    console.error(`SMTP is not configured. Missing: ${missing.join(", ")}`);
-    return null;
-  }
-
-  if (cachedTransport && cachedTransportKey === transportKey) {
-    return cachedTransport;
-  }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 12000,
-    });
+   const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+        user:'devayush120@gmail.com',
+        pass:'acdyrznanmithgrz'
+    }
+})
 
     await transporter.verify();
     console.log("SMTP verified successfully");
@@ -67,17 +36,11 @@ export const sendVerificationEmail = async ({ to, code }) => {
     throw new Error("Email service is not configured");
   }
 
-  const from = getEnv(
-    "SMTP_FROM",
-    "SENDER_EMAIL",
-    "SMTP_USER",
-    "MAIL_USER",
-    "EMAIL_USER",
-  );
+ 
 
   const info = await transport.sendMail({
-    from,
-    to,
+    from: 'devayush120@gmail.com',
+        to: to,
     subject: "Verify your Chatio email",
     text: `Your Chatio verification code is ${code}. It expires in 10 minutes.`,
     html: `<!DOCTYPE html>
