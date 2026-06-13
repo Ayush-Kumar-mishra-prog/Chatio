@@ -5,7 +5,7 @@ export const BACKEND =
 
 const api = axios.create({
   baseURL: `${BACKEND}/auth`,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 export const messageApi = axios.create({
@@ -41,20 +41,27 @@ const attachNetworkRecovery = (client) => {
     async (error) => {
       const config = error.config || {};
       const method = (config.method || "get").toLowerCase();
-      const canRetry = !error.response && method === "get";
+      const url = config.url || "";
+      const isRetryableSignup = method === "post" && url.includes("/signup");
+      const maxRetries = isRetryableSignup ? 1 : 3;
+      const canRetry =
+        !error.response && (method === "get" || isRetryableSignup);
       config.__retryCount = config.__retryCount || 0;
 
-      if (canRetry && config.__retryCount < 3) {
+      if (canRetry && config.__retryCount < maxRetries) {
         config.__retryCount += 1;
         await sleep(700 * config.__retryCount);
         return client(config);
       }
 
       if (!error.response) {
+        const isTimeout =
+          error.code === "ECONNABORTED" || error.message?.includes("timeout");
         error.response = {
           data: {
-            message:
-              "Network error - Backend server is not accessible. Please check your connection.",
+            message: isTimeout
+              ? "Request timed out. Please try again."
+              : "Network error - Backend server is not accessible. Please check your connection.",
           },
           status: 0,
         };
