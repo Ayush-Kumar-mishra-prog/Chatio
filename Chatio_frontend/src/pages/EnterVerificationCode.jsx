@@ -22,7 +22,13 @@ const EnterVerificationCode = () => {
       toast.success("Email verified");
       navigate("/chat", { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || "Verification failed");
+      const response = error.response?.data;
+      if (response?.signupAgain) {
+        toast.error(response.message || "Please sign up again");
+        navigate("/", { replace: true, state: { signup: true } });
+        return;
+      }
+      toast.error(response?.message || "Verification failed");
     } finally {
       setIsVerifying(false);
     }

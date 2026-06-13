@@ -12,6 +12,11 @@ import {
 } from "../utils/auth.js";
 import { sendVerificationEmail } from "../services/emailService.js";
 import { uploadIfNeeded } from "../utils/uploadImage.js";
+import {
+  cleanupExpiredUnverifiedUsers,
+  isVerificationExpired,
+  removeUnverifiedLocalUser,
+} from "../utils/unverifiedUser.js";
 
 const normalizeEmail = (email = "") => email.trim().toLowerCase();
 
@@ -32,9 +37,20 @@ export const signup = async (req, res) => {
         .json({ message: "Password must be at least 8 characters" });
     }
 
-    const existingUser = await GUser.findOne({ email: normalizedEmail });
+    const existingUser = await GUser.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationExpires",
+    );
+
     if (existingUser) {
-      return res.status(409).json({ message: "Email already registered" });
+      if (
+        !existingUser.isEmailVerified &&
+        existingUser.authProvider === "local" &&
+        isVerificationExpired(existingUser)
+      ) {
+        await removeUnverifiedLocalUser(existingUser);
+      } else {
+        return res.status(409).json({ message: "Email already registered" });
+      }
     }
 
     const verificationCode = createVerificationCode();
@@ -98,12 +114,19 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    const isExpired =
-      !user.emailVerificationExpires ||
-      user.emailVerificationExpires < new Date();
+    const isExpired = isVerificationExpired(user);
+    const codeMatches = user.emailVerificationCode === code?.trim();
 
-    if (isExpired || user.emailVerificationCode !== code?.trim()) {
-      return res.status(400).json({ message: "Invalid or expired code" });
+    if (isExpired) {
+      await removeUnverifiedLocalUser(user);
+      return res.status(400).json({
+        message: "Verification code expired. Please sign up again.",
+        signupAgain: true,
+      });
+    }
+
+    if (!codeMatches) {
+      return res.status(400).json({ message: "Invalid verification code" });
     }
 
     user.isEmailVerified = true;
@@ -136,7 +159,7 @@ export const login = async (req, res) => {
     }
 
     const user = await GUser.findOne({ email: normalizedEmail }).select(
-      "+password",
+      "+password +emailVerificationExpires",
     );
 
     if (!user || !user.password) {
@@ -149,6 +172,14 @@ export const login = async (req, res) => {
     }
 
     if (!user.isEmailVerified) {
+      if (isVerificationExpired(user)) {
+        await removeUnverifiedLocalUser(user);
+        return res.status(403).json({
+          message: "Verification expired. Please sign up again.",
+          signupAgain: true,
+        });
+      }
+
       return res.status(403).json({
         message: "Please verify your email first",
         needsVerification: true,

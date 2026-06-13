@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import assets from "../assets/assets";
 import LoginForm from "../components/LoginForm";
 import SignUpForm from "../components/SignUpForm";
 
 const HomePage = () => {
+  const location = useLocation();
   const [isSignUp, setIsSignUp] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.signup) {
+      setIsSignUp(true);
+    }
+  }, [location.state?.signup]);
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row w-full backdrop-blur-sm bg-white">
