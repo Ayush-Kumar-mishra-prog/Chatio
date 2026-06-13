@@ -227,7 +227,7 @@ const SideBar = ({
                 setShowStatusAdd(true);
               }
             }}
-            className="absolute -bottom-0.5 -right-0.5 h-10 w-10 rounded-2xl bg-[#00a884] text-white grid place-items-center border-2 border-white cursor-pointer"
+            className="absolute -bottom-0.5 -right-0.5 h-7 w-7 rounded-2xl bg-[#00a884] text-white grid place-items-center border-2 border-white cursor-pointer"
           >
             <Plus className="size-4" />
           </span>
@@ -488,7 +488,7 @@ const SideBar = ({
                 onClick={() =>
                   activeTab === "Status" ? setShowStatusAdd(true) : setShowNewChat(true)
                 }
-                className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
+                className="h-8 w-8 rounded-2xl  bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
               >
                 <Plus className="size-3.5" />
               </button>
