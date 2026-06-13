@@ -5,7 +5,7 @@ export const BACKEND =
 
 const api = axios.create({
   baseURL: `${BACKEND}/auth`,
-  timeout: 10000,
+  timeout: 30000,
 });
 
 export const messageApi = axios.create({

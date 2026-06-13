@@ -13,12 +13,29 @@ import {
 import { sendVerificationEmail } from "../services/emailService.js";
 import { uploadIfNeeded } from "../utils/uploadImage.js";
 import {
-  cleanupExpiredUnverifiedUsers,
   isVerificationExpired,
   removeUnverifiedLocalUser,
 } from "../utils/unverifiedUser.js";
 
 const normalizeEmail = (email = "") => email.trim().toLowerCase();
+const verificationExpiresAt = () => new Date(Date.now() + 10 * 60 * 1000);
+
+const sendSignupVerification = async (user, email, code, statusCode, res) => {
+  try {
+    await sendVerificationEmail({ to: email, code });
+  } catch (emailError) {
+    console.error("Verification email error:", emailError);
+    return res.status(503).json({
+      message: "Could not send verification email. Please try again later.",
+    });
+  }
+
+  return res.status(statusCode).json({
+    message: "Verification code sent to your email",
+    email: user.email,
+    needsVerification: true,
+  });
+};
 
 export const signup = async (req, res) => {
   try {
@@ -38,7 +55,7 @@ export const signup = async (req, res) => {
     }
 
     const existingUser = await GUser.findOne({ email: normalizedEmail }).select(
-      "+emailVerificationExpires",
+      "+emailVerificationCode +emailVerificationExpires",
     );
 
     if (existingUser) {
@@ -48,6 +65,22 @@ export const signup = async (req, res) => {
         isVerificationExpired(existingUser)
       ) {
         await removeUnverifiedLocalUser(existingUser);
+      } else if (
+        !existingUser.isEmailVerified &&
+        existingUser.authProvider === "local"
+      ) {
+        const verificationCode = createVerificationCode();
+        existingUser.emailVerificationCode = verificationCode;
+        existingUser.emailVerificationExpires = verificationExpiresAt();
+        await existingUser.save();
+
+        return sendSignupVerification(
+          existingUser,
+          normalizedEmail,
+          verificationCode,
+          200,
+          res,
+        );
       } else {
         return res.status(409).json({ message: "Email already registered" });
       }
@@ -64,7 +97,7 @@ export const signup = async (req, res) => {
       authProvider: "local",
       isEmailVerified: false,
       emailVerificationCode: verificationCode,
-      emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+      emailVerificationExpires: verificationExpiresAt(),
     });
 
     try {

@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
 
+let cachedTransport = null;
+let cachedTransportKey = "";
+
 const getEnv = (...keys) => {
   for (const key of keys) {
     const value = process.env[key]?.trim();
@@ -9,10 +12,11 @@ const getEnv = (...keys) => {
 };
 
 const getMailTransport = async () => {
-  const host = getEnv("SMTP_HOST");
-  const user = getEnv("SMTP_USER");
-  const pass = getEnv("SMTP_PASS", "SMTP_PASSWORD");
+  const host = getEnv("SMTP_HOST", "MAIL_HOST", "EMAIL_HOST");
+  const user = getEnv("SMTP_USER", "MAIL_USER", "EMAIL_USER");
+  const pass = getEnv("SMTP_PASS", "SMTP_PASSWORD", "MAIL_PASS", "EMAIL_PASS");
   const port = Number(getEnv("SMTP_PORT")) || 587;
+  const transportKey = `${host}:${port}:${user}`;
 
   if (!host || !user || !pass) {
     console.error(
@@ -21,19 +25,30 @@ const getMailTransport = async () => {
     return null;
   }
 
+  if (cachedTransport && cachedTransportKey === transportKey) {
+    return cachedTransport;
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       host,
       port,
       secure: port === 465,
       auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 12000,
     });
 
     await transporter.verify();
     console.log("SMTP verified successfully");
+    cachedTransport = transporter;
+    cachedTransportKey = transportKey;
     return transporter;
   } catch (error) {
     console.error("SMTP verification failed:", error.message);
+    cachedTransport = null;
+    cachedTransportKey = "";
     return null;
   }
 };
@@ -45,7 +60,13 @@ export const sendVerificationEmail = async ({ to, code }) => {
     throw new Error("Email service is not configured");
   }
 
-  const from = getEnv("SMTP_FROM", "SENDER_EMAIL", "SMTP_USER");
+  const from = getEnv(
+    "SMTP_FROM",
+    "SENDER_EMAIL",
+    "SMTP_USER",
+    "MAIL_USER",
+    "EMAIL_USER",
+  );
 
   const info = await transport.sendMail({
     from,
