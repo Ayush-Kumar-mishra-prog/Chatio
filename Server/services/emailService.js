@@ -13,6 +13,11 @@ const getMailTransport = async () => {
       secure: false,
       auth: { user, pass },
     });
+    await transporter.verify();
+
+console.log("SMTP verified successfully");
+
+return transporter;
   } catch (error) {
     console.log("nodemailer is not installed; logging verification codes instead.");
     return null;
@@ -20,6 +25,7 @@ const getMailTransport = async () => {
 };
 
 export const sendVerificationEmail = async ({ to, code }) => {
+  try{
   const transport = await getMailTransport();
 
   if (!transport) {
@@ -28,7 +34,7 @@ export const sendVerificationEmail = async ({ to, code }) => {
   }
 
   await transport.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    from: process.env.SMTP_USER,
     to,
     subject: "Verify your Chatio email",
     text: `Your Chatio verification code is ${code}. It expires in 10 minutes.`,
@@ -150,6 +156,10 @@ export const sendVerificationEmail = async ({ to, code }) => {
 </body>
 </html>`,
   });
+console.log("Mail sent:", info);
+}catch(err){
+  console.log(err)
+}
 };
 
 
