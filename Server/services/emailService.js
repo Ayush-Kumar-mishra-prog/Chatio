@@ -9,6 +9,7 @@ const getMailTransport = async () => {
    const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port:587,
+      secure:false,
       auth:{
        user:process.env.SMTP_USER,
        pass:process.env.SMTP_PASSWORD
@@ -19,9 +20,12 @@ const getMailTransport = async () => {
     console.log("SMTP verified successfully");
     return transporter;
   } catch (error) {
-    console.error("SMTP verification failed:", error.message);
-    return null;
-  }
+  console.error("SMTP verification failed:");
+  console.error(error);
+  console.log("SMTP_USER =", process.env.SMTP_USER);
+console.log("Has SMTP_PASSWORD =", !!process.env.SMTP_PASSWORD);
+  return null;
+}
 };
 
 export const sendVerificationEmail = async ({ to, code }) => {
