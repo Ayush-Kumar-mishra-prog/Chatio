@@ -150,5 +150,6 @@ export const sendVerificationEmail = async ({ to, code }) => {
 </html>`,
   });
 
+  
   console.log("Verification email sent:", info.messageId);
 };
