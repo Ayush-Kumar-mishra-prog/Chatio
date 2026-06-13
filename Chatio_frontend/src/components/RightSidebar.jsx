@@ -51,13 +51,7 @@ const RightSidebar = ({
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
 
-  const isOnline =
-      slectedUser?.type === "group" ||
-      slectedUser?.members?.some(
-        (member) =>
-          asId(member._id || member) !== asId(user?._id) &&
-          onlineUsers.includes(asId(member._id || member)),
-      );
+  
 
   useEffect(() => {
     if (!slectedUser?._id) return;
@@ -109,7 +103,7 @@ const RightSidebar = ({
           </p>
           <span className="text-xs text-[#00a884] flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-[#00a884]"></span>
-            {isGroup ? `${slectedUser.members?.length || 0} members` : isOnline ? "Online":"Offline"}
+            {isGroup ? `${slectedUser.members?.length || 0} members` : ""}
             
           </span>
           <div className={`grid gap-3 w-full px-5 mt-4 ${showCallActions ? "grid-cols-3" : "grid-cols-1"}`}>

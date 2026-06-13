@@ -229,7 +229,7 @@ const SideBar = ({
             }}
             className="absolute -bottom-0.5 -right-0.5 h-10 w-10 rounded-2xl bg-[#00a884] text-white grid place-items-center border-2 border-white cursor-pointer"
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-4" />
           </span>
         </span>
         <span className="min-w-0">
@@ -501,7 +501,7 @@ const SideBar = ({
         <button
           type="button"
           onClick={() => selectConversation(buildMirrorAiChat(assets.aiAvatar))}
-          className="absolute right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 h-10 w-10 rounded-2xl border border-gray-500 bg-white text-[#00a884] shadow-xl  grid place-items-center  transition"
+          className="absolute right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 h-12 w-12 rounded-2xl border border-gray-200 bg-slate-300 text-[#00a884] shadow-xl  grid place-items-center  transition cursor-pointer"
           title="MirrorAI"
         >
           <img src={assets.aiAvatar} alt="" className="h-8 w-8 object-contain" />
