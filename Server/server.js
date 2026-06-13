@@ -3,6 +3,8 @@ import cors from "cors";
 import g_authRouter from "./routes/g_authRouter.js";
 import http from "http";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import connectDB from "./configs/db.js";
 import { cleanupExpiredUnverifiedUsers } from "./utils/unverifiedUser.js";
 import messageRouter from "./routes/messageRoutes.js";
@@ -13,6 +15,8 @@ import aiRouter from "./routes/aiRoutes.js";
 import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const io = new Server(server, {
   cors: { origin: "*" },
@@ -65,7 +69,7 @@ io.on("connection", (socket) => {
   });
 });
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, ".env") });
 app.use(express.json({ limit: "35mb" }));
 
 await connectDB();

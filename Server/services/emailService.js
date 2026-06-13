@@ -11,6 +11,14 @@ const getEnv = (...keys) => {
   return "";
 };
 
+const getMissingSmtpGroups = ({ host, user, pass }) => {
+  const missing = [];
+  if (!host) missing.push("SMTP_HOST");
+  if (!user) missing.push("SMTP_USER");
+  if (!pass) missing.push("SMTP_PASS or SMTP_PASSWORD");
+  return missing;
+};
+
 const getMailTransport = async () => {
   const host = getEnv("SMTP_HOST", "MAIL_HOST", "EMAIL_HOST");
   const user = getEnv("SMTP_USER", "MAIL_USER", "EMAIL_USER");
@@ -19,9 +27,8 @@ const getMailTransport = async () => {
   const transportKey = `${host}:${port}:${user}`;
 
   if (!host || !user || !pass) {
-    console.error(
-      "SMTP is not configured (SMTP_HOST, SMTP_USER, and SMTP_PASS or SMTP_PASSWORD required)",
-    );
+    const missing = getMissingSmtpGroups({ host, user, pass });
+    console.error(`SMTP is not configured. Missing: ${missing.join(", ")}`);
     return null;
   }
 
