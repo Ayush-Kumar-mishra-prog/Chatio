@@ -8,8 +8,11 @@ const getMailTransport = async () => {
   try {
    const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,
+  requireTLS:true,
+  logger:true,
+  debug:true,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
