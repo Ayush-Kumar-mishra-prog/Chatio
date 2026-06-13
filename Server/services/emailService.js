@@ -36,6 +36,8 @@ export const sendVerificationEmail = async ({ to, code }) => {
 
   if (!transport) {
     throw new Error("Email service is not configured");
+    console.log("SMTP_USER =", process.env.SMTP_USER);
+console.log("Has SMTP_PASSWORD =", !!process.env.SMTP_PASSWORD);
   }
 
  
