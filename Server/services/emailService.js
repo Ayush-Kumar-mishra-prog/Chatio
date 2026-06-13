@@ -18,13 +18,9 @@ const getMailTransport = async () => {
 
     await transporter.verify();
     console.log("SMTP verified successfully");
-    cachedTransport = transporter;
-    cachedTransportKey = transportKey;
     return transporter;
   } catch (error) {
     console.error("SMTP verification failed:", error.message);
-    cachedTransport = null;
-    cachedTransportKey = "";
     return null;
   }
 };
