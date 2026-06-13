@@ -482,25 +482,21 @@ const SideBar = ({
           <>
             <div className="px-4 pt-3 pb-1 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-600">{activeTab}</p>
+              <button
+                type="button"
+                title={activeTab === "Status" ? "Add status" : "New chat"}
+                onClick={() =>
+                  activeTab === "Status" ? setShowStatusAdd(true) : setShowNewChat(true)
+                }
+                className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
+              >
+                <Plus className="size-5" />
+              </button>
             </div>
             {renderActiveContent()}
           </>
         )}
       </div>
-
-      {!showNewChat && (activeTab === "Chats" || activeTab === "Status") && (
-        <button
-          type="button"
-          onClick={() =>
-            activeTab === "Status" ? setShowStatusAdd(true) : setShowNewChat(true)
-          }
-          className="absolute left-5 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 h-14 w-14 rounded-2xl bg-[#00a884] text-white shadow-xl grid place-items-center hover:bg-[#008f72] transition cursor-pointer active:scale-90"
-          title={activeTab === "Status" ? "Add status" : "New chat"}
-        >
-          <Plus className="size-7" />
-        </button>
-      )}
-
       {!showNewChat && activeTab === "Chats" && (
         <button
           type="button"
