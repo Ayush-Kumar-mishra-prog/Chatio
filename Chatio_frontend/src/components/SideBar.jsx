@@ -62,10 +62,14 @@ const SideBar = ({
   const filterBySearch = (items) =>
     normalizedSearch
       ? items.filter((item) =>
-          (item.fullName || item.name || "").toLowerCase().includes(normalizedSearch),
+          (item.fullName || item.name || "")
+            .toLowerCase()
+            .includes(normalizedSearch),
         )
       : items;
-  const filteredUsers = filterBySearch(conversations.filter((item) => item.type !== "group"));
+  const filteredUsers = filterBySearch(
+    conversations.filter((item) => item.type !== "group"),
+  );
   const filteredGroups = filterBySearch(
     conversations.filter((item) => {
       if (item.type !== "group") return false;
@@ -73,9 +77,11 @@ const SideBar = ({
       return item.members?.some(
         (member) => asId(member._id || member) === asId(user?._id),
       );
-    })
+    }),
   );
-  const filteredFavorites = filterBySearch(conversations.filter((item) => item.isFavorite));
+  const filteredFavorites = filterBySearch(
+    conversations.filter((item) => item.isFavorite),
+  );
   const groupedStatuses = Object.values(
     statuses.reduce((acc, status) => {
       const owner = status.userId || {};
@@ -101,14 +107,19 @@ const SideBar = ({
   const hasUnviewedStatus = (group) =>
     group.items.some(
       (status) =>
-        !status.viewers?.some((viewer) => asId(viewer._id || viewer) === asId(currentUserId)),
+        !status.viewers?.some(
+          (viewer) => asId(viewer._id || viewer) === asId(currentUserId),
+        ),
     );
   const filteredCalls = filterBySearch(callLogs);
-  const filteredContacts = (newChatSearch.trim()
-    ? contacts.filter((contact) =>
-        (contact.name || contact.fullName || "").toLowerCase().includes(newChatSearch.trim().toLowerCase()),
-      )
-    : contacts
+  const filteredContacts = (
+    newChatSearch.trim()
+      ? contacts.filter((contact) =>
+          (contact.name || contact.fullName || "")
+            .toLowerCase()
+            .includes(newChatSearch.trim().toLowerCase()),
+        )
+      : contacts
   ).filter((contact) => contact._id !== user?._id);
 
   const selectConversation = (conversation) => {
@@ -134,61 +145,79 @@ const SideBar = ({
     <div className="py-2">
       {isLoading && !items.length && renderChatSkeleton()}
       {!items.length && (
-        <div className={`px-4 py-8 text-center text-sm text-slate-500 ${isLoading ? "hidden" : ""}`}>
-          {isLoading ? "Loading..." : type === "favorite" ? "No favorite chats yet" : "No chats yet"}
+        <div
+          className={`px-4 py-8 text-center text-sm text-slate-500 ${isLoading ? "hidden" : ""}`}
+        >
+          {isLoading
+            ? "Loading..."
+            : type === "favorite"
+              ? "No favorite chats yet"
+              : "No chats yet"}
         </div>
       )}
       {items.map((chat) => {
         const isGroup = chat.type === "group";
         const isMirror = isMirrorAi(chat);
-        const online = !isGroup && !isMirror && chat.members?.some(
-          (member) =>
-            asId(member._id || member) !== asId(user?._id) &&
-            onlineUsers.includes(asId(member._id || member)),
-        );
+        const online =
+          !isGroup &&
+          !isMirror &&
+          chat.members?.some(
+            (member) =>
+              asId(member._id || member) !== asId(user?._id) &&
+              onlineUsers.includes(asId(member._id || member)),
+          );
         const unread = unseenMessages[chat._id] || 0;
         return (
-        <div
-          onClick={() => {
-            selectConversation(chat);
-          }}
-          key={chat._id}
-          className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${asId(slectedUser?._id) === asId(chat._id) ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
-        >
-          <img
-            src={isMirror ? assets.aiAvatar : chat?.profilePic || assets.avatar_icon}
-            alt=""
-            className="h-11 w-11 object-cover rounded-full"
-          />
-          <div className="flex flex-col leading-5 min-w-0">
-            <p className="font-medium truncate">{chat.fullName || chat.name}</p>
-            <span
-              className={`${isGroup || isMirror || online ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
-            >
-              {isMirror
-                ? "Always available"
-                : isGroup
-                  ? `${chat.members?.length || 0} members`
-                  : online
-                    ? "Online"
-                    : "Offline"}
-            </span>
-            <span className="text-xs text-slate-500 truncate">
-              {isMirror
-                ? getMirrorAiPreview(user?._id)
-                : chat.lastMessage?.text || chat.bio || (chat.lastMessage?.image ? "Image" : "Start chatting")}
-            </span>
+          <div
+            onClick={() => {
+              selectConversation(chat);
+            }}
+            key={chat._id}
+            className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer max-sm:text-sm border-b border-slate-100 transition ${asId(slectedUser?._id) === asId(chat._id) ? "bg-[#d9fdd3]" : "hover:bg-[#f0f2f5]"}`}
+          >
+            <img
+              src={
+                isMirror
+                  ? assets.aiAvatar
+                  : chat?.profilePic || assets.avatar_icon
+              }
+              alt=""
+              className="h-11 w-11 object-cover rounded-full"
+            />
+            <div className="flex flex-col leading-5 min-w-0">
+              <p className="font-medium truncate">
+                {chat.fullName || chat.name}
+              </p>
+              <span
+                className={`${isGroup || isMirror || online ? "text-[#00a884]" : "text-slate-400"} text-xs truncate`}
+              >
+                {isMirror
+                  ? "Always available"
+                  : isGroup
+                    ? `${chat.members?.length || 0} members`
+                    : online
+                      ? "Online"
+                      : "Offline"}
+              </span>
+              <span className="text-xs text-slate-500 truncate">
+                {isMirror
+                  ? getMirrorAiPreview(user?._id)
+                  : chat.lastMessage?.text ||
+                    chat.bio ||
+                    (chat.lastMessage?.image ? "Image" : "Start chatting")}
+              </span>
+            </div>
+            {chat.isFavorite && !isMirror && (
+              <Star className="ml-auto size-4 shrink-0 fill-[#25d366] text-[#25d366]" />
+            )}
+            {!!unread && (
+              <p className="absolute top-5 right-4 text-xs h-5 w-5 flex justify-center items-center rounded-full bg-[#25d366] text-white">
+                {unread}
+              </p>
+            )}
           </div>
-          {chat.isFavorite && !isMirror && (
-            <Star className="ml-auto size-4 shrink-0 fill-[#25d366] text-[#25d366]" />
-          )}
-          {!!unread && (
-            <p className="absolute top-5 right-4 text-xs h-5 w-5 flex justify-center items-center rounded-full bg-[#25d366] text-white">
-              {unread}
-            </p>
-          )}
-        </div>
-      )})}
+        );
+      })}
     </div>
   );
 
@@ -199,7 +228,11 @@ const SideBar = ({
         onClick={() => {
           if (myStatusGroup) {
             setViewingStatusGroup({
-              user: { _id: myStatusGroup._id, name: user?.name, image: user?.image },
+              user: {
+                _id: myStatusGroup._id,
+                name: user?.name,
+                image: user?.image,
+              },
               items: myStatusGroup.items,
             });
           } else {
@@ -306,8 +339,7 @@ const SideBar = ({
         const isOutgoing = call.callerId?._id === user?._id;
         const peer = isOutgoing ? call.receiverIds?.[0] : call.callerId;
         const missed = call.status === "missed";
-        const CallIcon =
-          isOutgoing ? PhoneOutgoing : PhoneIncoming;
+        const CallIcon = isOutgoing ? PhoneOutgoing : PhoneIncoming;
         return (
           <button
             key={call._id}
@@ -332,7 +364,9 @@ const SideBar = ({
             className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-100 hover:bg-[#f0f2f5]"
           >
             <img
-              src={peer?.image || call.conversationId?.image || assets.avatar_icon}
+              src={
+                peer?.image || call.conversationId?.image || assets.avatar_icon
+              }
               alt=""
               className="h-11 w-11 rounded-full object-cover"
             />
@@ -346,7 +380,8 @@ const SideBar = ({
                 <CallIcon
                   className={`size-3.5 ${missed ? "text-red-500" : "text-[#00a884]"}`}
                 />
-                {isOutgoing ? "Outgoing" : missed ? "Missed" : "Incoming"} - {formatShortTime(call.createdAt)}
+                {isOutgoing ? "Outgoing" : missed ? "Missed" : "Incoming"} -{" "}
+                {formatShortTime(call.createdAt)}
               </span>
             </span>
             <Phone className="size-5 text-[#075e54]" />
@@ -357,7 +392,8 @@ const SideBar = ({
   );
 
   const renderActiveContent = () => {
-    if (activeTab === "Groups") return renderConversationList(filteredGroups, "group");
+    if (activeTab === "Groups")
+      return renderConversationList(filteredGroups, "group");
     if (activeTab === "Favorites")
       return renderConversationList(filteredFavorites, "favorite");
     if (activeTab === "Status") return renderStatusList();
@@ -419,9 +455,7 @@ const SideBar = ({
             </button>
           ))}
         </div>
-
       </div>
-
 
       <div className="flex-1 min-h-0 overflow-y-scroll pb-20">
         {showNewChat ? (
@@ -468,11 +502,15 @@ const SideBar = ({
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50 border-b border-slate-100"
                 >
                   <img
-                    src={contact.image || contact.profilePic || assets.avatar_icon}
+                    src={
+                      contact.image || contact.profilePic || assets.avatar_icon
+                    }
                     alt=""
                     className="h-10 w-10 rounded-full object-cover"
                   />
-                  <span className="text-sm flex-1">{contact.name || contact.fullName}</span>
+                  <span className="text-sm flex-1">
+                    {contact.name || contact.fullName}
+                  </span>
                   <UserPlus className="size-4 text-[#075e54]" />
                 </button>
               ))}
@@ -481,22 +519,30 @@ const SideBar = ({
         ) : (
           <>
             <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-600">{activeTab}</p>
-              <button
-                type="button"
-                title={activeTab === "Status" ? "Add status" : "New chat"}
-                onClick={() =>
-                  activeTab === "Status" ? setShowStatusAdd(true) : setShowNewChat(true)
-                }
-                className="h-8 w-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72] transition"
-              >
-                <Plus className="size-5" />
-              </button>
+              <p className="text-sm font-semibold text-slate-600">
+                {activeTab}
+              </p>
             </div>
             {renderActiveContent()}
           </>
         )}
       </div>
+
+      {!showNewChat && (activeTab === "Chats" || activeTab === "Status") && (
+        <button
+          type="button"
+          onClick={() =>
+            activeTab === "Status"
+              ? setShowStatusAdd(true)
+              : setShowNewChat(true)
+          }
+          className="absolute left-5 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 h-14 w-14 rounded-2xl bg-[#00a884] text-white shadow-xl grid place-items-center hover:bg-[#008f72] transition cursor-pointer active:scale-90"
+          title={activeTab === "Status" ? "Add status" : "New chat"}
+        >
+          <Plus className="size-7" />
+        </button>
+      )}
+
       {!showNewChat && activeTab === "Chats" && (
         <button
           type="button"
@@ -504,7 +550,11 @@ const SideBar = ({
           className="absolute right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 h-12 w-12 rounded-2xl border border-gray-200 bg-slate-300 text-[#00a884] shadow-xl  grid place-items-center  transition cursor-pointer"
           title="MirrorAI"
         >
-          <img src={assets.aiAvatar} alt="" className="h-8 w-8 object-contain" />
+          <img
+            src={assets.aiAvatar}
+            alt=""
+            className="h-8 w-8 object-contain"
+          />
         </button>
       )}
       <div className="grid grid-cols-3 shrink-0 sticky bottom-0 z-10 border-t border-emerald-100 bg-white px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
