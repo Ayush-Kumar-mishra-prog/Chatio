@@ -68,6 +68,26 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("typing:start", ({ receiverIds = [], ...payload }) => {
+    receiverIds.forEach((receiverId) => {
+      const id = asId(receiverId);
+      io.to(id).emit("typing:start", {
+        ...payload,
+        senderId: userId,
+      });
+    });
+  });
+
+  socket.on("typing:stop", ({ receiverIds = [], ...payload }) => {
+    receiverIds.forEach((receiverId) => {
+      const id = asId(receiverId);
+      io.to(id).emit("typing:stop", {
+        ...payload,
+        senderId: userId,
+      });
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log("User Disconnected", userId);
     delete userSocketMap[userId];

@@ -42,9 +42,11 @@ const ChatContainer = ({
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [isPeerTyping, setIsPeerTyping] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const scrollEnd = useRef();
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
   const selectedConversationIdRef = useRef(slectedUser?._id);
   selectedConversationIdRef.current = slectedUser?._id;
   const isMirrorAiChat = isMirrorAi(slectedUser);
@@ -60,6 +62,11 @@ const ChatContainer = ({
         asId(member._id || member) !== asId(user?._id) &&
         onlineUsers.includes(asId(member._id || member)),
     );
+
+  // Reset typing state when switching users
+  useEffect(() => {
+    setIsPeerTyping(false);
+  }, [slectedUser?._id]);
 
   useEffect(() => {
     if (scrollEnd.current) {
@@ -149,12 +156,28 @@ const ChatContainer = ({
       );
     };
 
+    const handleTyping = ({ conversationId }) => {
+      if (asId(conversationId) === asId(selectedConversationIdRef.current)) {
+        setIsPeerTyping(true);
+      }
+    };
+
+    const handleStopTyping = ({ conversationId }) => {
+      if (asId(conversationId) === asId(selectedConversationIdRef.current)) {
+        setIsPeerTyping(false);
+      }
+    };
+
     socket.on("newMessage", handleNewMessage);
     socket.on("messagesSeen", handleMessagesSeen);
+    socket.on("typing", handleTyping);
+    socket.on("stop-typing", handleStopTyping);
 
     return () => {
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
+      socket.off("typing", handleTyping);
+      socket.off("stop-typing", handleStopTyping);
     };
   }, [socket, isMirrorAiChat]);
 
@@ -253,11 +276,35 @@ const ChatContainer = ({
     }
   };
 
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setMessageText(value);
+
+    if (!socket || isMirrorAiChat || isBlocked) return;
+
+    // Emit typing event to the server
+    socket.emit("typing", { conversationId: slectedUser._id });
+
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    // Set a timeout to stop typing status after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("stop-typing", { conversationId: slectedUser._id });
+    }, 2000);
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
     const text = messageText.trim();
     if (!text) return;
     setMessageText("");
+
+    if (socket && !isMirrorAiChat) {
+      socket.emit("stop-typing", { conversationId: slectedUser._id });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    }
+
     if (isMirrorAiChat) {
       sendMirrorAi(text);
       return;
@@ -334,18 +381,24 @@ const ChatContainer = ({
               {slectedUser.fullName}
             </span>
             <span className="flex items-center gap-1 text-xs text-[#00a884]">
-              {!isMirrorAiChat && (
-                <span
-                  className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#00a884]" : "bg-slate-400"}`}
-                ></span>
+              {isPeerTyping ? (
+                <span className="italic">typing...</span>
+              ) : (
+                <>
+                  {!isMirrorAiChat && (
+                    <span
+                      className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#00a884]" : "bg-slate-400"}`}
+                    ></span>
+                  )}
+                  {isMirrorAiChat
+                    ? "Always available"
+                    : isGroupChat
+                      ? `${slectedUser.members?.length || 0} members`
+                      : isOnline
+                        ? "Online"
+                        : "Offline"}
+                </>
               )}
-              {isMirrorAiChat
-                ? "Always available"
-                : isGroupChat
-                  ? `${slectedUser.members?.length || 0} members`
-                  : isOnline
-                    ? "Online"
-                    : "Offline"}
             </span>
           </span>
         </button>
@@ -516,7 +569,7 @@ const ChatContainer = ({
               type="text"
               value={messageText}
               disabled={isBlocked}
-              onChange={(event) => setMessageText(event.target.value)}
+              onChange={handleInputChange}
               className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-slate-800 placeholder:text-slate-500 bg-transparent disabled:cursor-not-allowed"
               placeholder={
                 isBlocked
