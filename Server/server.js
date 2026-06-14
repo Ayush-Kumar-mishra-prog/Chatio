@@ -13,6 +13,13 @@ import statusRouter from "./routes/statusRoutes.js";
 import presenceRouter from "./routes/presenceRoutes.js";
 import aiRouter from "./routes/aiRoutes.js";
 import { Server } from "socket.io";
+import https from "https";
+
+https.get("https://api.ipify.org", (res) => {
+  let data = "";
+  res.on("data", chunk => data += chunk);
+  res.on("end", () => console.log(data));
+});
 const app = express();
 const server = http.createServer(app);
 const __filename = fileURLToPath(import.meta.url);

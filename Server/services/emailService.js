@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import nodemailer from "nodemailer";
 
 
@@ -7,12 +13,10 @@ const getMailTransport = async () => {
 
   try {
    const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+ host: "smtp.gmail.com",
   port: 587,
-  secure: false,
-  requireTLS:true,
-  logger:true,
-  debug:true,
+  family: 4,
+  
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
@@ -44,7 +48,7 @@ console.log("Has SMTP_PASSWORD =", !!process.env.SMTP_PASSWORD);
  
 
   const info = await transport.sendMail({
-    from: '"Chatio" <a86543320@gmail.com>',
+    from: '"Chatio" <devayush120@gmail.com>',
         to: to,
     subject: "Verify your Chatio email",
     text: `Your Chatio verification code is ${code}. It expires in 10 minutes.`,

@@ -25,6 +25,8 @@
     "express": "^5.2.1",
     "googleapis": "^173.0.0",
     "jsonwebtoken": "^9.0.3",
+    "mailtrap": "^4.6.0",
+    "mailtrap-client": "^1.1.1",
     "mongoose": "^9.6.3",
     "nodemailer": "^8.0.10",
     "nodemon": "^3.1.14",
