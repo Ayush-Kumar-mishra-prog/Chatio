@@ -71,8 +71,9 @@ const SignUpForm = ({ onLoginClick }) => {
     try {
       setIsLoading(true);
       const result = await signupUser(form);
-      toast.success(result.data.message || "Verification code sent");
-      navigate("/verification", { state: { email: form.email } });
+      saveSession(result.data.token, result.data.user, result.data.refreshToken);
+      toast.success(result.data.message || "Signup successful");
+      navigate("/chat", { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {

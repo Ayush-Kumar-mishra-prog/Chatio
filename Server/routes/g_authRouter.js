@@ -9,7 +9,6 @@ import {
   refreshToken,
   signup,
   updateProfile,
-  verifyEmail,
 } from '../controller/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 const router = express.Router()
@@ -20,7 +19,6 @@ router.get('/test',(req,res)=>{
 router.get('/google',googleLogin)
 router.post('/facebook', facebookLogin)
 router.post('/signup', signup)
-router.post('/verify-email', verifyEmail)
 router.post('/login', login)
 router.post('/refresh', refreshToken)
 router.post('/logout', protect, logout)

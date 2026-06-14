@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./configs/db.js";
-import { cleanupExpiredUnverifiedUsers } from "./utils/unverifiedUser.js";
 import messageRouter from "./routes/messageRoutes.js";
 import callRouter from "./routes/callRoutes.js";
 import statusRouter from "./routes/statusRoutes.js";
@@ -80,22 +79,6 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 app.use(express.json({ limit: "35mb" }));
 
 await connectDB();
-
-cleanupExpiredUnverifiedUsers()
-  .then((count) => {
-    if (count > 0) {
-      console.log(`Removed ${count} expired unverified user(s)`);
-    }
-  })
-  .catch((error) => {
-    console.error("Unverified user cleanup error:", error);
-  });
-
-setInterval(() => {
-  cleanupExpiredUnverifiedUsers().catch((error) => {
-    console.error("Unverified user cleanup error:", error);
-  });
-}, 5 * 60 * 1000);
 
 app.use(
   cors({

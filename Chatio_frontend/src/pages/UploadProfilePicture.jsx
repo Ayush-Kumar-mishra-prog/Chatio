@@ -99,7 +99,7 @@ const UploadProfilePicture = () => {
             </div>
           )}
           <Link
-            to="/verification"
+            to="/"
             type="submit"
             className="text-sm bg-[#00a884] hover:bg-[#008f72] active:scale-95 transition text-white font-medium px-8 py-2 rounded-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2 w-full justify-center mt-3"
           >

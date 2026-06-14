@@ -96,8 +96,7 @@ const attachAuthRefresh = (client) => {
       const isAuthRequest =
         originalRequest.url?.includes("/refresh") ||
         originalRequest.url?.includes("/login") ||
-        originalRequest.url?.includes("/signup") ||
-        originalRequest.url?.includes("/verify-email");
+        originalRequest.url?.includes("/signup");
 
       if (status !== 401 || originalRequest._retry || isAuthRequest) {
         return Promise.reject(error);
@@ -172,7 +171,6 @@ export const googleAuth = (code) => api.get(`/google?code=${code}`);
 export const facebookAuth = (payload) => api.post("/facebook", payload);
 export const loginUser = (payload) => api.post("/login", payload);
 export const signupUser = (payload) => api.post("/signup", payload);
-export const verifyEmail = (payload) => api.post("/verify-email", payload);
 export const refreshAccessToken = (refreshToken) =>
   api.post("/refresh", { refreshToken });
 export const logoutUser = () => api.post("/logout");

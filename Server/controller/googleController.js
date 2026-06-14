@@ -29,13 +29,11 @@ const googleLogin = async (req, res) => {
         image: cloudinaryPicture,
         googleId: id,
         authProvider: "google",
-        isEmailVerified: true,
       });
     } else {
       user.googleId = user.googleId || id;
       user.image = user.image || cloudinaryPicture;
       user.authProvider = "google";
-      user.isEmailVerified = true;
       await user.save();
     }
 

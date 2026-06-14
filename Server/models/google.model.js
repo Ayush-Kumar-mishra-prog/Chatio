@@ -45,18 +45,6 @@ const gSchema = new mongoose.Schema(
       enum: ["local", "google", "facebook"],
       default: "local",
     },
-    isEmailVerified: {
-      type: Boolean,
-      default: false,
-    },
-    emailVerificationCode: {
-      type: String,
-      select: false,
-    },
-    emailVerificationExpires: {
-      type: Date,
-      select: false,
-    },
     refreshTokenHash: {
       type: String,
       select: false,

@@ -2,7 +2,6 @@ import { Route, Routes } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import Profilepage from "./pages/Profilepage";
-import EnterVerificationCode from "./pages/EnterVerificationCode";
 import ChatPage from "./pages/ChatPage";
 import StatusPage from './components/StatusPage'
 import LoginFailedPage from "./pages/LoginFailedPage";
@@ -16,7 +15,6 @@ const App = () => {
         <Route element={<PublicOnlyRoute />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/verification" element={<EnterVerificationCode />} />
         </Route>
         <Route element={<ProtectedRoute />}>
           <Route path="/chat" element={<ChatPage />} />

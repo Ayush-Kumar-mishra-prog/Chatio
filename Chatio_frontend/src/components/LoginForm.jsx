@@ -26,15 +26,6 @@ const LoginForm = ({ onSignUpClick }) => {
       toast.success("Logged in successfully");
     } catch (error) {
       const response = error.response?.data;
-      if (response?.needsVerification) {
-        navigate("/verification", { state: { email: response.email } });
-        toast.info("Please verify your email first");
-        return;
-      }
-      if (response?.signupAgain) {
-        toast.error(response.message || "Please sign up again");
-        return;
-      }
       toast.error(response?.message || "Invalid email or password");
     } finally {
       setIsLoading(false);

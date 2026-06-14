@@ -72,8 +72,4 @@ export const publicUser = (user) => ({
   googleId: user.googleId,
   facebookId: user.facebookId,
   authProvider: user.authProvider,
-  isEmailVerified: user.isEmailVerified,
 });
-
-export const createVerificationCode = () =>
-  Math.floor(100000 + Math.random() * 900000).toString();
