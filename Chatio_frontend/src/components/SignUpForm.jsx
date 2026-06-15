@@ -14,8 +14,6 @@ const SignUpForm = ({ onLoginClick }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const { saveSession } = useAuth();
-  const googleCancelTimeoutRef = useRef(null);
-  const facebookCancelTimeoutRef = useRef(null);
   const facebookTokenRef = useRef("");
   const [form, setForm] = useState({
     name: "",
@@ -54,35 +52,19 @@ const SignUpForm = ({ onLoginClick }) => {
   const isLoading = isSubmitting || isGoogleLoading || isFacebookLoading;
 
   const stopGoogleLoading = () => {
-    if (googleCancelTimeoutRef.current) {
-      clearTimeout(googleCancelTimeoutRef.current);
-      googleCancelTimeoutRef.current = null;
-    }
     setIsGoogleLoading(false);
   };
 
   const stopFacebookLoading = () => {
-    if (facebookCancelTimeoutRef.current) {
-      clearTimeout(facebookCancelTimeoutRef.current);
-      facebookCancelTimeoutRef.current = null;
-    }
     setIsFacebookLoading(false);
   };
 
   const startGoogleLoading = () => {
-    stopGoogleLoading();
     setIsGoogleLoading(true);
-    googleCancelTimeoutRef.current = setTimeout(() => {
-      setIsGoogleLoading(false);
-    }, 12000);
   };
 
   const startFacebookLoading = () => {
-    stopFacebookLoading();
     setIsFacebookLoading(true);
-    facebookCancelTimeoutRef.current = setTimeout(() => {
-      setIsFacebookLoading(false);
-    }, 12000);
   };
 
   useEffect(() => {

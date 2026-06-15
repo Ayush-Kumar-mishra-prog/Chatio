@@ -120,9 +120,14 @@ const StatusPage = () => {
       setStatusIndex((index) => index + 1);
       return;
     }
+    if (selectedUserIndex !== null && selectedUserIndex < groups.length - 1) {
+      setSelectedUserIndex((index) => index + 1);
+      setStatusIndex(0);
+      return;
+    }
     setSelectedUserIndex(null);
     setStatusIndex(0);
-  }, [selectedGroup, statusIndex]);
+  }, [selectedGroup, statusIndex, selectedUserIndex, groups.length]);
 
   const goPrevious = useCallback(() => {
     setShowViewers(false);

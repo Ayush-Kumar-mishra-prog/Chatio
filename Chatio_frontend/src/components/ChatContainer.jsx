@@ -26,6 +26,24 @@ const appendUniqueMessage = (messages, nextMessage) =>
     ? messages
     : [...messages, nextMessage];
 
+const TypingIndicator = () => (
+  <span className="inline-flex items-center gap-1 text-[#00a884]">
+    <span className="italic">typing</span>
+    <span
+      className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce"
+      style={{ animationDelay: "0ms" }}
+    ></span>
+    <span
+      className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce"
+      style={{ animationDelay: "150ms" }}
+    ></span>
+    <span
+      className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce"
+      style={{ animationDelay: "300ms" }}
+    ></span>
+  </span>
+);
+
 const ChatContainer = ({
   slectedUser,
   setSlectedUser,
@@ -66,6 +84,11 @@ const ChatContainer = ({
   // Reset typing state when switching users
   useEffect(() => {
     setIsPeerTyping(false);
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
   }, [slectedUser?._id]);
 
   useEffect(() => {
@@ -156,30 +179,32 @@ const ChatContainer = ({
       );
     };
 
-    const handleTyping = ({ conversationId }) => {
+    const handleTyping = ({ conversationId, senderId }) => {
       if (asId(conversationId) === asId(selectedConversationIdRef.current)) {
+        if (asId(senderId) === asId(user?._id)) return;
         setIsPeerTyping(true);
       }
     };
 
-    const handleStopTyping = ({ conversationId }) => {
+    const handleStopTyping = ({ conversationId, senderId }) => {
       if (asId(conversationId) === asId(selectedConversationIdRef.current)) {
+        if (asId(senderId) === asId(user?._id)) return;
         setIsPeerTyping(false);
       }
     };
 
     socket.on("newMessage", handleNewMessage);
     socket.on("messagesSeen", handleMessagesSeen);
-    socket.on("typing", handleTyping);
-    socket.on("stop-typing", handleStopTyping);
+    socket.on("typing:start", handleTyping);
+    socket.on("typing:stop", handleStopTyping);
 
     return () => {
       socket.off("newMessage", handleNewMessage);
       socket.off("messagesSeen", handleMessagesSeen);
-      socket.off("typing", handleTyping);
-      socket.off("stop-typing", handleStopTyping);
+      socket.off("typing:start", handleTyping);
+      socket.off("typing:stop", handleStopTyping);
     };
-  }, [socket, isMirrorAiChat]);
+  }, [socket, isMirrorAiChat, user?._id]);
 
   useEffect(() => {
     if (socketReady || !slectedUser?._id || isMirrorAiChat) return undefined;
@@ -276,21 +301,41 @@ const ChatContainer = ({
     }
   };
 
+  const getTypingReceiverIds = () => {
+    const memberIds = (slectedUser?.members || [])
+      .map((member) => asId(member._id || member))
+      .filter((id) => id && id !== asId(user?._id));
+    if (memberIds.length) return memberIds;
+    const fallbackId = asId(slectedUser?._id);
+    if (fallbackId && fallbackId !== asId(user?._id)) {
+      return [fallbackId];
+    }
+    return [];
+  };
+
   const handleInputChange = (e) => {
     const value = e.target.value;
     setMessageText(value);
 
     if (!socket || isMirrorAiChat || isBlocked) return;
+    const receiverIds = getTypingReceiverIds();
+    if (!receiverIds.length) return;
 
     // Emit typing event to the server
-    socket.emit("typing", { conversationId: slectedUser._id });
+    socket.emit("typing:start", {
+      conversationId: slectedUser._id,
+      receiverIds,
+    });
 
     // Clear any existing timeout
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     // Set a timeout to stop typing status after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit("stop-typing", { conversationId: slectedUser._id });
+      socket.emit("typing:stop", {
+        conversationId: slectedUser._id,
+        receiverIds,
+      });
     }, 2000);
   };
 
@@ -301,7 +346,13 @@ const ChatContainer = ({
     setMessageText("");
 
     if (socket && !isMirrorAiChat) {
-      socket.emit("stop-typing", { conversationId: slectedUser._id });
+      const receiverIds = getTypingReceiverIds();
+      if (receiverIds.length) {
+        socket.emit("typing:stop", {
+          conversationId: slectedUser._id,
+          receiverIds,
+        });
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
 
@@ -382,7 +433,7 @@ const ChatContainer = ({
             </span>
             <span className="flex items-center gap-1 text-xs text-[#00a884]">
               {isPeerTyping ? (
-                <span className="italic">typing...</span>
+                <TypingIndicator />
               ) : (
                 <>
                   {!isMirrorAiChat && (
