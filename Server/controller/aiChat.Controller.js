@@ -1,3 +1,7 @@
+
+
+
+
 import ai from "../configs/ai.js";
 
 export const textMessageController = async (req, res) => {
@@ -11,28 +15,36 @@ export const textMessageController = async (req, res) => {
       });
     }
 
-    const contents = [
+    const messages = [
+      {
+        role: "system",
+        content:
+          "You are MirrorAI, a friendly AI assistant inside the Chatio chat app (similar to Meta AI on WhatsApp). Reply in clear, helpful, conversational text. Keep answers concise unless the user asks for detail.",
+      },
+
       ...history
         .filter((item) => item?.text?.trim())
         .slice(-20)
         .map((item) => ({
-          role: item.role === "user" ? "user" : "model",
-          parts: [{ text: item.text.trim() }],
+          role: item.role === "assistant" ? "assistant" : "user",
+          content: item.text.trim(),
         })),
-      { role: "user", parts: [{ text: prompt.trim() }] },
+
+      {
+        role: "user",
+        content: prompt.trim(),
+      },
     ];
 
-    const response = await ai.models.generateContent({
-      model:"gemini-3.5-flash",
-      contents,
-      config: {
-        systemInstruction:
-          "You are MirrorAI, a friendly AI assistant inside the Chatio chat app (similar to Meta AI on WhatsApp). Reply in clear, helpful, conversational text. Keep answers concise unless the user asks for detail.",
-      },
+    const response = await ai.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages,
+      temperature: 0.7,
+      max_tokens: 2048,
     });
 
     const replyText =
-      response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      response.choices?.[0]?.message?.content?.trim() ||
       "Sorry, I couldn't generate a response right now.";
 
     res.json({
@@ -45,6 +57,7 @@ export const textMessageController = async (req, res) => {
     });
   } catch (error) {
     console.error("MirrorAI error:", error);
+
     res.status(500).json({
       success: false,
       message: error.message || "Something went wrong",
